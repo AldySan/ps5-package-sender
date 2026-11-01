@@ -6,7 +6,6 @@ import PS5PackageSender
 Rectangle {
     id: card
     required property var model
-    readonly property alias selectedItem: check.checked
 
     color: model.selected ? Theme.accentSoft : Theme.surface
     radius: Theme.radius

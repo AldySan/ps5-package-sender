@@ -13,6 +13,9 @@ class LibraryModel : public QAbstractListModel {
     Q_PROPERTY(QString formatFilter READ formatFilter WRITE setFormatFilter NOTIFY filtersChanged)
     Q_PROPERTY(QString familyFilter READ familyFilter WRITE setFamilyFilter NOTIFY filtersChanged)
     Q_PROPERTY(int selectedCount READ selectedCount NOTIFY selectedCountChanged)
+    Q_PROPERTY(int selectedPkgCount READ selectedPkgCount NOTIFY selectedCountChanged)
+    Q_PROPERTY(int selectedImageCount READ selectedImageCount
+                   NOTIFY selectedCountChanged)
     Q_PROPERTY(int count READ count NOTIFY countChanged)
 
 public:
@@ -46,6 +49,8 @@ public:
     void setFamilyFilter(const QString &key);
 
     int selectedCount() const;
+    int selectedPkgCount() const;
+    int selectedImageCount() const;
     int count() const { return m_visible.size(); }
 
     Q_INVOKABLE void reload();

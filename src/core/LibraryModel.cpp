@@ -150,6 +150,24 @@ int LibraryModel::selectedCount() const
     return n;
 }
 
+int LibraryModel::selectedPkgCount() const
+{
+    int n = 0;
+    for (const Item &item : m_visible)
+        if (item.selected && item.kind != QStringLiteral("Image"))
+            n++;
+    return n;
+}
+
+int LibraryModel::selectedImageCount() const
+{
+    int n = 0;
+    for (const Item &item : m_visible)
+        if (item.selected && item.kind == QStringLiteral("Image"))
+            n++;
+    return n;
+}
+
 void LibraryModel::toggleSelected(qlonglong id)
 {
     setSelected(id, !m_selected.value(id, false));

@@ -8,30 +8,9 @@ Page {
     id: page
     background: Rectangle { color: Theme.background }
 
-    property string activeFilter: "All"
     property bool hasSelection: app.libraryModel.selectedCount > 0
-    property bool hasImageSelection: selectedImages() > 0
-    property bool hasPkgSelection: selectedPkgs() > 0
-
-    function selectedImages() {
-        let n = 0
-        for (let i = 0; i < grid.count; i++) {
-            const item = grid.itemAtIndex(i)
-            if (item && item.selectedItem && item.model.kind === "Image")
-                n++
-        }
-        return n
-    }
-
-    function selectedPkgs() {
-        let n = 0
-        for (let i = 0; i < grid.count; i++) {
-            const item = grid.itemAtIndex(i)
-            if (item && item.selectedItem && item.model.kind !== "Image")
-                n++
-        }
-        return n
-    }
+    property bool hasImageSelection: app.libraryModel.selectedImageCount > 0
+    property bool hasPkgSelection: app.libraryModel.selectedPkgCount > 0
 
     FolderDialog {
         id: folderDialog
@@ -91,13 +70,13 @@ Page {
                 model: ["All", "Game", "DLC", "Image"]
 
                 delegate: Button {
-                    readonly property bool active: page.activeFilter === modelData
+                    readonly property bool active: page.filter === modelData
                     flat: true
                     text: modelData
                     implicitHeight: 28
                     font.pixelSize: 12
                     onClicked: {
-                        page.activeFilter = modelData
+                        page.filter = modelData
                         app.libraryModel.formatFilter = modelData === "All" ? "" : modelData
                     }
 
@@ -187,10 +166,8 @@ Page {
 
             Button {
                 text: qsTr("Send PKG")
-                enabled: page.hasPkgSelection && !app.scanning && app.canSend
+                enabled: page.hasPkgSelection && !app.scanning
                 highlighted: page.hasPkgSelection
-                ToolTip.visible: hovered && !app.canSend
-                ToolTip.text: qsTr("Enabled once the transfer queue is wired")
                 onClicked: {
                     app.sendSelected()
                     app.libraryModel.clearSelection()
@@ -199,7 +176,7 @@ Page {
 
             Button {
                 text: qsTr("Copy images")
-                enabled: page.hasImageSelection && !app.scanning && app.canSend
+                enabled: page.hasImageSelection && !app.scanning
                 onClicked: {
                     app.copySelectedImages()
                     app.libraryModel.clearSelection()
