@@ -56,7 +56,7 @@ Rectangle {
                         width: kindLabel.implicitWidth + 10
                         height: kindLabel.implicitHeight + 4
                         radius: 4
-                        color: model.isCopy ? "#f5b83d22" : Theme.accentSoft
+                        color: model.isCopy ? "#22f5b83d" : Theme.accentSoft
 
                         Label {
                             id: kindLabel
