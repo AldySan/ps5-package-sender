@@ -25,6 +25,8 @@ add_library(ps5core STATIC
     src/core/PkgInfo.cpp
     src/core/ReceiverClient.h
     src/core/ReceiverClient.cpp
+    src/core/Discovery.h
+    src/core/Discovery.cpp
     src/core/LibraryScanner.h
     src/core/LibraryScanner.cpp
     src/core/LibraryModel.h
@@ -68,6 +70,7 @@ qt_add_qml_module(ps5-package-sender
         qml/Main.qml
         qml/components/GameCard.qml
         qml/components/Toast.qml
+        qml/components/StatusBar.qml
         qml/pages/LibraryPage.qml
         qml/pages/QueuePage.qml
         qml/pages/HistoryPage.qml
