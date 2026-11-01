@@ -1,0 +1,15 @@
+/build*
+/cmake-build-*/
+/.cache/
+/.qt/
+CMakeLists.txt.user*
+*.autosave
+/.idea/
+/.vscode/
+/compile_commands.json
+node_modules/
+/dist/
+/AppDir/
+*.tar.gz
+*.zip
+/.appdir/
