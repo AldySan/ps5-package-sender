@@ -74,11 +74,17 @@ ToolBar {
 
         ComboBox {
             id: pcBox
-            implicitWidth: 150
-            model: app.pcAddresses
+            implicitWidth: 200
+            model: app.pcAddressLabels
             visible: app.pcAddresses.length > 0
-            currentIndex: app.pcIp ? Math.max(0, app.pcAddresses.indexOf(app.pcIp)) : -1
-            displayText: qsTr("PC ") + (app.pcIp || qsTr("IP"))
+            currentIndex: app.pcIp ? app.pcAddresses.indexOf(app.pcIp) : -1
+            displayText: {
+                if (!app.pcIp)
+                    return qsTr("PC ") + qsTr("IP")
+                const idx = app.pcAddresses.indexOf(app.pcIp)
+                return idx >= 0 ? qsTr("PC ") + app.pcAddressLabels[idx]
+                                : qsTr("PC ") + app.pcIp
+            }
             onActivated: index => app.pcIp = app.pcAddresses[index]
         }
 

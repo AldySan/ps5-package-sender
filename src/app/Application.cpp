@@ -293,10 +293,16 @@ void Application::saveIpSettings()
 void Application::refreshPcAddresses()
 {
     QStringList addresses;
-    for (const LanNetwork &net : Discovery::lanNetworks())
-        addresses.append(net.address.toString());
+    QStringList labels;
+    for (const LanNetwork &net : Discovery::lanNetworks()) {
+        const QString ip = net.address.toString();
+        addresses.append(ip);
+        labels.append(net.name.isEmpty() ? ip
+                        : QStringLiteral("%1 (%2)").arg(ip, net.name));
+    }
     if (m_pcAddresses != addresses) {
         m_pcAddresses = addresses;
+        m_pcAddressLabels = labels;
         emit pcAddressesChanged();
         emit hasNetworkChanged();
     }

@@ -39,6 +39,8 @@ class Application : public QObject {
     Q_PROPERTY(QString psIp READ psIp WRITE setPsIp NOTIFY psIpChanged)
     Q_PROPERTY(QString pcIp READ pcIp WRITE setPcIp NOTIFY pcIpChanged)
     Q_PROPERTY(QStringList pcAddresses READ pcAddresses NOTIFY pcAddressesChanged)
+    Q_PROPERTY(QStringList pcAddressLabels READ pcAddressLabels
+                   NOTIFY pcAddressesChanged)
     Q_PROPERTY(bool hasNetwork READ hasNetwork NOTIFY hasNetworkChanged)
     Q_PROPERTY(bool receiverOnline READ receiverOnline NOTIFY receiverOnlineChanged)
     Q_PROPERTY(bool receiverBusy READ receiverBusy NOTIFY receiverOnlineChanged)
@@ -84,6 +86,7 @@ public:
     QString pcIp() const { return m_pcIp; }
     void setPcIp(const QString &ip);
     QStringList pcAddresses() const { return m_pcAddresses; }
+    QStringList pcAddressLabels() const { return m_pcAddressLabels; }
     bool hasNetwork() const { return !m_pcAddresses.isEmpty(); }
     bool receiverOnline() const { return m_receiverOnline; }
     bool receiverBusy() const { return m_receiverBusy; }
@@ -170,6 +173,7 @@ private:
     QString m_psIp;
     QString m_pcIp;
     QStringList m_pcAddresses;
+    QStringList m_pcAddressLabels;
     bool m_receiverOnline = false;
     bool m_receiverBusy = false;
     QString m_receiverBuild;
