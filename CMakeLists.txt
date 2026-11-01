@@ -29,6 +29,10 @@ add_library(ps5core STATIC
     src/core/Discovery.cpp
     src/core/RangeFileServer.h
     src/core/RangeFileServer.cpp
+    src/core/QueueModel.h
+    src/core/QueueModel.cpp
+    src/core/TransferQueue.h
+    src/core/TransferQueue.cpp
     src/core/LibraryScanner.h
     src/core/LibraryScanner.cpp
     src/core/LibraryModel.h
@@ -73,6 +77,7 @@ qt_add_qml_module(ps5-package-sender
         qml/components/GameCard.qml
         qml/components/Toast.qml
         qml/components/StatusBar.qml
+        qml/components/QueueRow.qml
         qml/pages/LibraryPage.qml
         qml/pages/QueuePage.qml
         qml/pages/HistoryPage.qml
@@ -109,4 +114,7 @@ if(BUILD_TESTS)
     add_executable(fileservertest tests/fileservertest.cpp)
     target_link_libraries(fileservertest PRIVATE ps5core)
     add_test(NAME fileservertest COMMAND fileservertest)
+    add_executable(queuetest tests/queuetest.cpp)
+    target_link_libraries(queuetest PRIVATE ps5core)
+    add_test(NAME queuetest COMMAND queuetest)
 endif()

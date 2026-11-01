@@ -10,6 +10,7 @@
 #include "core/LibraryScanner.h"
 #include "core/RangeFileServer.h"
 #include "core/ReceiverClient.h"
+#include "core/TransferQueue.h"
 
 namespace ps5 {
 
@@ -24,6 +25,10 @@ class Application : public QObject {
     Q_PROPERTY(QString lastPickFolder READ lastPickFolder WRITE setLastPickFolder
                    NOTIFY lastPickFolderChanged)
     Q_PROPERTY(bool canSend READ canSend CONSTANT)
+    Q_PROPERTY(ps5::TransferQueue *queue READ queue CONSTANT)
+    Q_PROPERTY(QString destination READ destination WRITE setDestination
+                   NOTIFY destinationChanged)
+    Q_PROPERTY(QVariantList historyRows READ historyRows NOTIFY historyChanged)
 
     Q_PROPERTY(QString psIp READ psIp WRITE setPsIp NOTIFY psIpChanged)
     Q_PROPERTY(QString pcIp READ pcIp WRITE setPcIp NOTIFY pcIpChanged)
@@ -51,7 +56,11 @@ public:
     QString databasePath() const { return Database::instance().databasePath(); }
     QString lastPickFolder() const;
     void setLastPickFolder(const QString &folder);
-    bool canSend() const { return false; }
+    bool canSend() const { return true; }
+    TransferQueue *queue() const { return m_queue; }
+    QString destination() const;
+    void setDestination(const QString &destination);
+    QVariantList historyRows() const { return m_historyRows; }
 
     QString psIp() const { return m_psIp; }
     void setPsIp(const QString &ip);
@@ -81,6 +90,10 @@ public:
     Q_INVOKABLE void useConsole(const QString &ip);
     Q_INVOKABLE void refreshPcAddresses();
     Q_INVOKABLE void copyToClipboard(const QString &text);
+    Q_INVOKABLE void sendSelected();
+    Q_INVOKABLE void copySelectedImages();
+    Q_INVOKABLE void reloadHistory();
+    Q_INVOKABLE void clearHistory();
 
 signals:
     void scanningChanged();
@@ -95,10 +108,14 @@ signals:
     void discoveringChanged();
     void consolesChanged();
     void shareEnabledChanged();
+    void destinationChanged();
+    void historyChanged();
 
 private:
     void startScan(const QStringList &roots, bool rememberRoots);
     void pruneMissing();
+    void enqueueSelection(bool copy);
+    QVariantList buildHistoryRows() const;
     void pollReceiver();
     void probeConsoles(const QStringList &ips);
     void saveIpSettings();
@@ -125,6 +142,8 @@ private:
 
     bool m_shareEnabled = false;
     RangeFileServer *m_server = nullptr;
+    TransferQueue *m_queue = nullptr;
+    QVariantList m_historyRows;
 
     ReceiverClient *m_receiver = nullptr;
     QTimer m_pollTimer;
