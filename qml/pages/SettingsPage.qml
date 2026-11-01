@@ -136,9 +136,15 @@ Page {
                 }
 
                 ComboBox {
-                    model: app.pcAddresses
-                    currentIndex: app.pcIp ? Math.max(0, app.pcAddresses.indexOf(app.pcIp)) : -1
-                    displayText: app.pcIp || qsTr("no network")
+                    id: pcBox
+                    model: app.pcAddressLabels
+                    currentIndex: app.pcIp ? app.pcAddresses.indexOf(app.pcIp) : -1
+                    displayText: {
+                        if (!app.pcIp)
+                            return qsTr("no network")
+                        const idx = app.pcAddresses.indexOf(app.pcIp)
+                        return idx >= 0 ? app.pcAddressLabels[idx] : app.pcIp
+                    }
                     onActivated: index => app.pcIp = app.pcAddresses[index]
                     Layout.fillWidth: true
                 }
