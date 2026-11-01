@@ -78,6 +78,11 @@ Application::Application(QObject *parent)
         emit discoveringChanged();
         probeConsoles(ips);
     });
+    connect(m_discovery, &Discovery::cancelled, this, [this] {
+        m_discovering = false;
+        m_discoveryStatus = tr("Cancelled");
+        emit discoveringChanged();
+    });
 
     m_server = new RangeFileServer(this);
     m_server->setCatalogProvider([] {
@@ -362,6 +367,12 @@ void Application::detectConsoles()
     m_discoveryStatus = tr("Starting…");
     emit discoveringChanged();
     m_discovery->findConsoles();
+}
+
+void Application::cancelDiscovery()
+{
+    if (m_discovering)
+        m_discovery->cancel();
 }
 
 void Application::probeConsoles(const QStringList &ips)

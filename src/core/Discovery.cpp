@@ -11,6 +11,8 @@ namespace ps5 {
 
 namespace {
 
+constexpr int ProbeChunkSize = 64;
+
 bool tcpOpen(const QString &ip, int port, int timeoutMs)
 {
     QTcpSocket sock;
@@ -134,13 +136,24 @@ QString Discovery::bestPcIpFor(const QList<LanNetwork> &nets, const QString &psI
     return nets.first().address.toString();
 }
 
+void Discovery::cancel()
+{
+    m_cancelled = true;
+}
+
 void Discovery::findConsoles()
 {
     if (m_running)
         return;
     m_running = true;
+    m_cancelled = false;
 
     (void)QtConcurrent::run([this] {
+        const auto finish = [this] {
+            QMetaObject::invokeMethod(this, [this] { m_running = false; },
+                                      Qt::QueuedConnection);
+        };
+
         emit progressMessage(tr("Listening for receiver beacons…"));
 
         QStringList beaconIps;
@@ -151,6 +164,12 @@ void Discovery::findConsoles()
             QElapsedTimer clock;
             clock.start();
             while (clock.elapsed() < 3500) {
+                if (m_cancelled) {
+                    emit progressMessage(tr("Cancelled"));
+                    emit cancelled();
+                    finish();
+                    return;
+                }
                 if (!udp.waitForReadyRead(250))
                     continue;
                 while (udp.hasPendingDatagrams()) {
@@ -182,20 +201,32 @@ void Discovery::findConsoles()
             }
         }
 
-        const QStringList probed = QtConcurrent::blockingMapped(
-            candidates, [](const QString &ip) -> QString {
-                return tcpOpen(ip, ReceiverPort, 300) ? ip : QString();
-            });
         QStringList found;
-        for (const QString &ip : probed)
-            if (!ip.isEmpty())
-                found.append(ip);
+        for (int i = 0; i < candidates.size(); i += ProbeChunkSize) {
+            if (m_cancelled) {
+                emit progressMessage(tr("Cancelled"));
+                emit cancelled();
+                finish();
+                return;
+            }
+            const QStringList chunk = candidates.mid(i, ProbeChunkSize);
+            const QStringList probed = QtConcurrent::blockingMapped(
+                chunk, [](const QString &ip) -> QString {
+                    return tcpOpen(ip, ReceiverPort, 300) ? ip : QString();
+                });
+            for (const QString &ip : probed)
+                if (!ip.isEmpty())
+                    found.append(ip);
+            emit progressMessage(tr("Sweeping the LAN… %1/%2")
+                                     .arg(qMin(i + ProbeChunkSize,
+                                               candidates.size()))
+                                     .arg(candidates.size()));
+        }
         std::sort(found.begin(), found.end());
 
         emit progressMessage(tr("Found %n console(s)", "", found.size()));
         emit consolesFound(found);
-        QMetaObject::invokeMethod(this, [this] { m_running = false; },
-                                  Qt::QueuedConnection);
+        finish();
     });
 }
 
