@@ -57,6 +57,10 @@ public:
     void removeScannedRoot(const QString &path);
     QStringList scannedRoots();
 
+    void addCustomScanPath(const QString &path);
+    void removeCustomScanPath(const QString &path);
+    QStringList customScanPaths();
+
     void addHistory(const HistoryRow &row);
     QList<HistoryRow> historyRows(int limit = 500);
     void clearHistory();

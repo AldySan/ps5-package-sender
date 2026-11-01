@@ -29,6 +29,9 @@ class Application : public QObject {
     Q_PROPERTY(QString destination READ destination WRITE setDestination
                    NOTIFY destinationChanged)
     Q_PROPERTY(QVariantList historyRows READ historyRows NOTIFY historyChanged)
+    Q_PROPERTY(QStringList scanPaths READ scanPaths NOTIFY scanPathsChanged)
+    Q_PROPERTY(bool destinationIsCustom READ destinationIsCustom
+                   NOTIFY destinationChanged)
 
     Q_PROPERTY(QString psIp READ psIp WRITE setPsIp NOTIFY psIpChanged)
     Q_PROPERTY(QString pcIp READ pcIp WRITE setPcIp NOTIFY pcIpChanged)
@@ -61,6 +64,8 @@ public:
     QString destination() const;
     void setDestination(const QString &destination);
     QVariantList historyRows() const { return m_historyRows; }
+    QStringList scanPaths() const { return m_scanPaths; }
+    bool destinationIsCustom() const;
 
     QString psIp() const { return m_psIp; }
     void setPsIp(const QString &ip);
@@ -94,6 +99,8 @@ public:
     Q_INVOKABLE void copySelectedImages();
     Q_INVOKABLE void reloadHistory();
     Q_INVOKABLE void clearHistory();
+    Q_INVOKABLE bool addCustomScanPath(const QString &path);
+    Q_INVOKABLE void removeCustomScanPath(const QString &path);
 
 signals:
     void scanningChanged();
@@ -110,12 +117,14 @@ signals:
     void shareEnabledChanged();
     void destinationChanged();
     void historyChanged();
+    void scanPathsChanged();
 
 private:
     void startScan(const QStringList &roots, bool rememberRoots);
     void pruneMissing();
     void enqueueSelection(bool copy);
     QVariantList buildHistoryRows() const;
+    QStringList refreshScanPaths();
     void pollReceiver();
     void probeConsoles(const QStringList &ips);
     void saveIpSettings();
@@ -144,6 +153,7 @@ private:
     RangeFileServer *m_server = nullptr;
     TransferQueue *m_queue = nullptr;
     QVariantList m_historyRows;
+    QStringList m_scanPaths;
 
     ReceiverClient *m_receiver = nullptr;
     QTimer m_pollTimer;

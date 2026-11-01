@@ -25,6 +25,8 @@ add_library(ps5core STATIC
     src/core/PkgInfo.cpp
     src/core/ReceiverClient.h
     src/core/ReceiverClient.cpp
+    src/core/ScanPaths.h
+    src/core/ScanPaths.cpp
     src/core/Discovery.h
     src/core/Discovery.cpp
     src/core/RangeFileServer.h
@@ -78,6 +80,7 @@ qt_add_qml_module(ps5-package-sender
         qml/components/Toast.qml
         qml/components/StatusBar.qml
         qml/components/QueueRow.qml
+        qml/components/DestinationPicker.qml
         qml/pages/LibraryPage.qml
         qml/pages/QueuePage.qml
         qml/pages/HistoryPage.qml
@@ -117,4 +120,7 @@ if(BUILD_TESTS)
     add_executable(queuetest tests/queuetest.cpp)
     target_link_libraries(queuetest PRIVATE ps5core)
     add_test(NAME queuetest COMMAND queuetest)
+    add_executable(scanpathstest tests/scanpathstest.cpp)
+    target_link_libraries(scanpathstest PRIVATE ps5core)
+    add_test(NAME scanpathstest COMMAND scanpathstest)
 endif()
