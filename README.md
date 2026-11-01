@@ -1,5 +1,9 @@
 # PS5 Package Sender
 
+[![Build](https://github.com/AldySan/ps5-package-sender/actions/workflows/build.yml/badge.svg)](https://github.com/AldySan/ps5-package-sender/actions/workflows/build.yml)
+[![Release](https://img.shields.io/github/v/release/AldySan/ps5-package-sender)](https://github.com/AldySan/ps5-package-sender/releases)
+[![License: GPL v3](https://img.shields.io/badge/license-GPL--3.0-blue)](LICENSE)
+
 A portable desktop client that installs PlayStation 5 packages (`.pkg`) and
 copies disc images (`.exfat`, `.ffpkg`, `.ffpfs`, `.ffpfsc`) to a jailbroken
 PS5 over your home network — no USB drive, no FTP, no installer on the PC.
@@ -65,6 +69,32 @@ console-side setup.
    want and press **Send PKG**. Disc images use **Copy images** — pick the
    destination from the scan-path list first.
 
+## Troubleshooting
+
+**Detect finds no console.** Make sure the receiver ELF is really running
+(look for the *listening on port 12800* notification on the console) and
+that both devices sit on the same network. Then check the PC firewall: the
+app needs inbound connections on port `9898` (it also tries `9899`–`9907`).
+On Windows, allow it on private networks when prompted.
+
+**The receiver shows offline, but the console is on.** Type the console IP
+manually and press **Test**. If the PC has several adapters (VPN, virtual
+machines), pick the address that actually reaches the console from the PC
+list in the status bar.
+
+**Transfers are slow.** Wi-Fi limits both directions; connect the PC and
+the console with Ethernet cables if you can.
+
+**A copied image does not show up on the console.** The destination has to
+be a folder the console-side mounter actually scans — compare it against
+the scan-path list in the app, or add the exact path from your mounter
+configuration as a custom path. The mounter scans on its own schedule, so
+give it a moment after the copy finishes.
+
+**Want a clean slate?** Everything the app remembers lives next to the
+executable — see [Data location](#data-location). Delete that folder and
+it starts fresh.
+
 ## Building from source
 
 Requires Qt 6.5 or newer (Quick, QuickControls2, Sql, Network, Concurrent),
@@ -84,6 +114,12 @@ pushes (`v*`) publish them as GitHub releases.
 Everything (settings, library cache, transfer history, custom scan paths)
 is kept in `data/store.db` next to the executable. Set
 `PS5PKGSENDER_DATA_DIR` to override the location.
+
+## Contributing
+
+Bug reports and pull requests are welcome — see
+[CONTRIBUTING.md](CONTRIBUTING.md) for the workflow, and note that all
+participation is covered by the [Code of Conduct](CODE_OF_CONDUCT.md).
 
 ## License
 
