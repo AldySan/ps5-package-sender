@@ -74,7 +74,8 @@ static QString makePkg(const QString &dir, const char *title)
 int main(int argc, char *argv[])
 {
     QCoreApplication app(argc, argv);
-    qputenv("PS5PKGSENDER_DATA_DIR", "/tmp/ps5pkg-test-data");
+    QTemporaryDir dataDir;
+    qputenv("PS5PKGSENDER_DATA_DIR", dataDir.path().toUtf8());
     QTemporaryDir dir;
 
     CHECK(ps5::Database::instance().open());
