@@ -2,13 +2,19 @@
 
 #include <QCoreApplication>
 #include <QDir>
+#include <QClipboard>
+#include <QGuiApplication>
 
 #include <memory>
 #include <QFileInfo>
 #include <QUrl>
 
+#include "core/PkgInfo.h"
 #include "db/Database.h"
 #include "util/Format.h"
+
+#include <QJsonArray>
+#include <QJsonObject>
 
 namespace ps5 {
 
@@ -60,6 +66,37 @@ Application::Application(QObject *parent)
         probeConsoles(ips);
     });
 
+    m_server = new RangeFileServer(this);
+    m_server->setCatalogProvider([] {
+        QJsonArray catalog;
+        for (const LibraryRow &row : Database::instance().libraryRows()) {
+            QJsonObject o;
+            o.insert(QStringLiteral("id"), QString::number(row.id));
+            o.insert(QStringLiteral("title"), row.title);
+            o.insert(QStringLiteral("titleId"), row.titleId);
+            o.insert(QStringLiteral("platform"), row.platform);
+            o.insert(QStringLiteral("version"), row.version);
+            o.insert(QStringLiteral("role"), PkgReader::isImageFile(row.format)
+                ? QStringLiteral("Image")
+                : (row.isDlc ? QStringLiteral("DLC") : QStringLiteral("Game")));
+            o.insert(QStringLiteral("format"), row.format);
+            o.insert(QStringLiteral("familyKey"),
+                     row.titleId.isEmpty() ? row.path : row.titleId);
+            o.insert(QStringLiteral("file"),
+                     QFileInfo(row.path).fileName());
+            o.insert(QStringLiteral("size"), double(row.size));
+            o.insert(QStringLiteral("sizeText"), formatSize(row.size));
+            o.insert(QStringLiteral("hasIcon"), !row.icon.isEmpty());
+            catalog.append(o);
+        }
+        return catalog;
+    });
+    m_server->setIconProvider([](const QString &id) {
+        return Database::instance().libraryIcon(id.toLongLong());
+    });
+    if (!m_server->start())
+        emit notify(tr("Could not bind the PC file server port"));
+
     refreshPcAddresses();
 
     m_pollTimer.setInterval(PollIntervalMs);
@@ -102,6 +139,31 @@ void Application::setPcIp(const QString &ip)
     m_pcIp = trimmed;
     saveIpSettings();
     emit pcIpChanged();
+    if (m_shareEnabled)
+        m_server->setAnnouncing(true, m_pcIp);
+}
+
+bool Application::shareEnabled() const
+{
+    return m_shareEnabled;
+}
+
+QString Application::catalogUrl() const
+{
+    if (!m_shareEnabled || !m_server)
+        return QString();
+    return m_server->catalogUrl(m_pcIp);
+}
+
+void Application::setShareEnabled(bool on)
+{
+    if (m_shareEnabled == on || !m_server)
+        return;
+    m_shareEnabled = on;
+    m_server->setAnnouncing(on, m_pcIp);
+    emit shareEnabledChanged();
+    if (on)
+        emit notify(tr("Catalog shared at %1").arg(catalogUrl()));
 }
 
 void Application::saveIpSettings()
@@ -169,7 +231,6 @@ void Application::detectConsoles()
 {
     if (m_discovering)
         return;
-    refreshPcAddresses();
     m_discovering = true;
     m_discoveryStatus = tr("Starting…");
     emit discoveringChanged();
@@ -201,6 +262,14 @@ void Application::probeConsoles(const QStringList &ips)
                 emit notify(tr("%1 console(s) found").arg(m_consoles.size()));
         });
     }
+}
+
+void Application::copyToClipboard(const QString &text)
+{
+    if (text.isEmpty())
+        return;
+    QGuiApplication::clipboard()->setText(text);
+    emit notify(tr("Copied %1").arg(text));
 }
 
 void Application::testConnection()
