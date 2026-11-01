@@ -20,6 +20,41 @@ Page {
             spacing: 18
 
             Label {
+                text: qsTr("Appearance")
+                color: Theme.text
+                font.pixelSize: 15
+                font.bold: true
+            }
+
+            RowLayout {
+                Layout.fillWidth: true
+
+                ColumnLayout {
+                    spacing: 2
+                    Layout.fillWidth: true
+
+                    Label {
+                        text: qsTr("Dark theme")
+                        color: Theme.text
+                        font.pixelSize: 13
+                    }
+
+                    Label {
+                        text: qsTr("Switch between the dark and light look. The choice is remembered.")
+                        color: Theme.textMuted
+                        font.pixelSize: 11
+                        wrapMode: Text.WordWrap
+                        Layout.fillWidth: true
+                    }
+                }
+
+                Switch {
+                    checked: app.theme !== "light"
+                    onToggled: app.theme = checked ? "dark" : "light"
+                }
+            }
+
+            Label {
                 text: qsTr("Connection")
                 color: Theme.text
                 font.pixelSize: 15

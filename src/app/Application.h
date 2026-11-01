@@ -18,6 +18,7 @@ class Application : public QObject {
     Q_OBJECT
     Q_PROPERTY(QString version READ version CONSTANT)
     Q_PROPERTY(QString title READ title CONSTANT)
+    Q_PROPERTY(QString theme READ theme WRITE setTheme NOTIFY themeChanged)
     Q_PROPERTY(ps5::LibraryModel *libraryModel READ libraryModel CONSTANT)
     Q_PROPERTY(bool scanning READ scanning NOTIFY scanningChanged)
     Q_PROPERTY(QString scanStatus READ scanStatus NOTIFY scanStatusChanged)
@@ -52,6 +53,8 @@ public:
 
     QString version() const { return m_version; }
     QString title() const { return m_title; }
+    QString theme() const { return m_theme; }
+    void setTheme(const QString &theme);
     LibraryModel *libraryModel() const { return m_library; }
     bool scanning() const { return m_scanning; }
     QString scanStatus() const { return m_scanStatus; }
@@ -105,6 +108,7 @@ signals:
     void scanStatusChanged();
     void lastPickFolderChanged();
     void notify(const QString &message);
+    void themeChanged();
     void psIpChanged();
     void pcIpChanged();
     void pcAddressesChanged();
@@ -129,6 +133,7 @@ private:
 
     QString m_version;
     QString m_title;
+    QString m_theme;
     LibraryModel *m_library = nullptr;
     LibraryScanner *m_scanner = nullptr;
     bool m_scanning = false;
