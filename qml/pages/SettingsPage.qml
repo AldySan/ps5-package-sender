@@ -254,14 +254,30 @@ Page {
             }
 
             Label {
-                text: qsTr("PS5 Package Sender %1 — a portable desktop client that "
-                    + "installs PKG packages and copies disc images to a "
-                    + "jailbroken PlayStation 5 over the LAN. The console side "
-                    + "runs pkg-receiver.elf; grab it from "
-                    + "AldySan/ps5-package-receiver-elf on GitHub.").arg(app.version)
+                text: qsTr("PS5 Package Sender %1 — a small desktop tool that moves "
+                    + "games, updates and extra content onto a jailbroken "
+                    + "PlayStation 5 over your home network. It is portable: "
+                    + "unzip and run, no installer, nothing left behind.")
+                    .arg(app.version)
                 color: Theme.textMuted
                 font.pixelSize: 14
                 wrapMode: Text.WordWrap
+                Layout.fillWidth: true
+            }
+
+            Text {
+                text: qsTr("The console side needs the companion receiver program "
+                    + "(ps5-receiver.elf) running in the background — grab it "
+                    + "from the releases of the receiver project. Both sides "
+                    + "are open source:<br>"
+                    + "• this app: <a href=\"https://github.com/AldySan/ps5-package-sender\">ps5-package-sender</a><br>"
+                    + "• the console receiver: <a href=\"https://github.com/AldySan/ps5-package-receiver-elf\">ps5-package-receiver-elf</a>")
+                textFormat: Text.RichText
+                color: Theme.textMuted
+                linkColor: Theme.accent
+                font.pixelSize: 14
+                wrapMode: Text.WordWrap
+                onLinkActivated: link => app.openLink(link)
                 Layout.fillWidth: true
             }
 

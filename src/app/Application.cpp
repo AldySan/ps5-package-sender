@@ -272,6 +272,13 @@ void Application::openReleasePage()
     QDesktopServices::openUrl(QUrl(url));
 }
 
+void Application::openLink(const QString &url)
+{
+    if (!url.startsWith(QStringLiteral("https://github.com/AldySan/")))
+        return;
+    QDesktopServices::openUrl(QUrl(url));
+}
+
 void Application::saveIpSettings()
 {
     Database::instance().setSetting(QStringLiteral("psIp"), m_psIp);

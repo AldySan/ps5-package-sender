@@ -123,6 +123,7 @@ public:
 
     Q_INVOKABLE void checkForUpdates();
     Q_INVOKABLE void openReleasePage();
+    Q_INVOKABLE void openLink(const QString &url);
 
 signals:
     void scanningChanged();
