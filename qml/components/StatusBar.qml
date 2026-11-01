@@ -110,8 +110,9 @@ ToolBar {
         width: 360
         height: 420
         padding: 10
-        modal: false
-        closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
+        modal: true
+        closePolicy: app.discovering ? Popup.NoAutoClose
+                                      : (Popup.CloseOnEscape | Popup.CloseOnPressOutside)
 
         onOpened: app.detectConsoles()
 
@@ -120,6 +121,10 @@ ToolBar {
             radius: Theme.radius
             border.width: 1
             border.color: Theme.border
+        }
+
+        Overlay.modal: Rectangle {
+            color: Theme.dark ? "#000000b0" : "#00000059"
         }
 
         contentItem: ColumnLayout {
@@ -136,6 +141,13 @@ ToolBar {
                 visible: app.discovering
                 running: app.discovering
                 Layout.alignment: Qt.AlignHCenter
+            }
+
+            Button {
+                visible: app.discovering
+                text: qsTr("Cancel")
+                Layout.alignment: Qt.AlignHCenter
+                onClicked: app.cancelDiscovery()
             }
 
             ListView {

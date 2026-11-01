@@ -110,6 +110,7 @@ public:
     Q_INVOKABLE void removeEntry(qlonglong id);
 
     Q_INVOKABLE void detectConsoles();
+    Q_INVOKABLE void cancelDiscovery();
     Q_INVOKABLE void testConnection();
     Q_INVOKABLE void useConsole(const QString &ip);
     Q_INVOKABLE void refreshPcAddresses();
