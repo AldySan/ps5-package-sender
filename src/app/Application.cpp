@@ -114,6 +114,7 @@ Application::Application(QObject *parent)
     });
     m_historyRows = buildHistoryRows();
 
+    refreshScanPaths();
     refreshPcAddresses();
 
     m_pollTimer.setInterval(PollIntervalMs);
