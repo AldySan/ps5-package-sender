@@ -49,7 +49,7 @@ done
 QT_LIBDIR="$(dirname "$(ldd "$OUT/bin/$APP" | awk '/libQt6Core\.so/{print $3; exit}')")"
 QT_PREFIX="$(dirname "$QT_LIBDIR")"
 
-for group in platforms imageformats iconengines sqldrivers networkinformation xcbglintegrations; do
+for group in platforms imageformats iconengines sqldrivers networkinformation xcbglintegrations tls; do
     if [ -d "$QT_PREFIX/plugins/$group" ]; then
         mkdir -p "$OUT/plugins/$group"
         cp -L "$QT_PREFIX/plugins/$group/"*.so* "$OUT/plugins/$group/" 2>/dev/null || true
@@ -71,6 +71,43 @@ fi
 # and friends), so walk their dependencies too.
 find "$OUT/plugins" "$OUT/qml" -name '*.so' -o -name '*.so.*' 2>/dev/null | while read -r so; do
     [ -e "$so" ] && copy_deps "$so"
+done
+
+# The app only ever opens QSQLITE connections, so the other drivers and
+# the client libraries they pull in are dead weight.
+for drv in mimer mysql odbc psql; do
+    rm -f "$OUT"/plugins/sqldrivers/libqsql"$drv".so
+done
+rm -f "$OUT"/lib/libmysqlclient.so.* \
+      "$OUT"/lib/libpq.so.* \
+      "$OUT"/lib/libodbc.so.*
+
+# The QML side imports QtQuick.Controls.Basic and run.sh pins
+# QT_QUICK_CONTROLS_STYLE=Basic, so the other Quick Controls styles never
+# load. Drop them plus the implementation libraries they own.
+for style in FluentWinUI3 Material Universal Imagine Fusion designer; do
+    rm -rf "$OUT"/qml/QtQuick/Controls/"$style"
+done
+rm -rf "$OUT"/qml/QtQuick/NativeStyle
+rm -f "$OUT"/lib/libQt6QuickControls2Fusion.so.6 \
+      "$OUT"/lib/libQt6QuickControls2FusionStyleImpl.so.6 \
+      "$OUT"/lib/libQt6QuickControls2Imagine.so.6 \
+      "$OUT"/lib/libQt6QuickControls2ImagineStyleImpl.so.6 \
+      "$OUT"/lib/libQt6QuickControls2Material.so.6 \
+      "$OUT"/lib/libQt6QuickControls2MaterialStyleImpl.so.6 \
+      "$OUT"/lib/libQt6QuickControls2Universal.so.6 \
+      "$OUT"/lib/libQt6QuickControls2UniversalStyleImpl.so.6 \
+      "$OUT"/lib/libQt6QuickControls2FluentWinUI3StyleImpl.so.6
+
+# QML modules never imported by the app.
+for mod in Particles Shapes Effects VectorImage LocalStorage; do
+    rm -rf "$OUT"/qml/QtQuick/"$mod"
+done
+
+# Release symbols are not needed at runtime.
+strip --strip-unneeded "$OUT/bin/$APP"
+for icu in "$OUT"/lib/libicudata.so.* "$OUT"/lib/libicui18n.so.* "$OUT"/lib/libicuuc.so.*; do
+    [ -e "$icu" ] && strip --strip-unneeded "$icu"
 done
 
 cat > "$OUT/bin/qt.conf" << 'EOF'
