@@ -87,7 +87,7 @@ Application::Application(QObject *parent)
                      QFileInfo(row.path).fileName());
             o.insert(QStringLiteral("size"), double(row.size));
             o.insert(QStringLiteral("sizeText"), formatSize(row.size));
-            o.insert(QStringLiteral("hasIcon"), !row.icon.isEmpty());
+            o.insert(QStringLiteral("hasIcon"), row.hasIcon);
             catalog.append(o);
         }
         return catalog;

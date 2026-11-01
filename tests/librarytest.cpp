@@ -111,6 +111,8 @@ int main(int argc, char *argv[])
         CHECK(rows.at(0).platform == "PS5");
         CHECK(rows.at(0).format == "pkg");
         CHECK(rows.at(0).size > 0x1000);
+        CHECK(!rows.at(0).hasIcon);
+        CHECK(db.libraryIcon(rows.at(0).id).isEmpty());
     }
 
     model.reload();
