@@ -26,7 +26,7 @@ Page {
 
             Item { Layout.fillWidth: true }
 
-            Button {
+            AppButton {
                 text: qsTr("Clear history")
                 enabled: app.historyRows.length > 0
                 onClicked: app.clearHistory()

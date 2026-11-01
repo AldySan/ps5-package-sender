@@ -121,8 +121,7 @@ Page {
                     font.pixelSize: 14
                 }
 
-                TextField {
-                    selectByMouse: true
+                AppTextField {
                     placeholderText: qsTr("192.168.1.42")
                     text: app.psIp
                     onEditingFinished: app.psIp = text.trim()
@@ -135,7 +134,7 @@ Page {
                     font.pixelSize: 14
                 }
 
-                ComboBox {
+                AppComboBox {
                     id: pcBox
                     model: app.pcAddressLabels
                     currentIndex: app.pcIp ? app.pcAddresses.indexOf(app.pcIp) : -1
@@ -226,14 +225,14 @@ Page {
                 Layout.fillWidth: true
                 spacing: 8
 
-                Button {
+                AppButton {
                     text: app.checkingUpdate ? qsTr("Checking…") : qsTr("Check for updates")
                     font.pixelSize: 14
                     enabled: !app.checkingUpdate
                     onClicked: app.checkForUpdates()
                 }
 
-                Button {
+                AppButton {
                     visible: app.updateAvailable
                     highlighted: true
                     text: qsTr("Download %1").arg(app.latestVersion)

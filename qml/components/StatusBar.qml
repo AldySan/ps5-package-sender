@@ -61,7 +61,7 @@ ToolBar {
             }
         }
 
-        Button {
+        AppButton {
             checkable: true
             text: checked ? qsTr("Share on") : qsTr("Share to console")
             checked: app.shareEnabled
@@ -72,7 +72,7 @@ ToolBar {
 
         Item { Layout.fillWidth: true }
 
-        ComboBox {
+        AppComboBox {
             id: pcBox
             implicitWidth: 200
             model: app.pcAddressLabels
@@ -88,7 +88,7 @@ ToolBar {
             onActivated: index => app.pcIp = app.pcAddresses[index]
         }
 
-        TextField {
+        AppTextField {
             id: consoleIpField
             implicitWidth: 130
             placeholderText: qsTr("console IP")
@@ -98,12 +98,12 @@ ToolBar {
             font.pixelSize: 12
         }
 
-        Button {
+        AppButton {
             text: qsTr("Test")
             onClicked: app.testConnection()
         }
 
-        Button {
+        AppButton {
             text: app.discovering ? qsTr("Detecting…") : qsTr("Detect")
             enabled: !app.discovering
             onClicked: consolePopup.open()
@@ -149,7 +149,7 @@ ToolBar {
                 Layout.alignment: Qt.AlignHCenter
             }
 
-            Button {
+            AppButton {
                 visible: app.discovering
                 text: qsTr("Cancel")
                 Layout.alignment: Qt.AlignHCenter

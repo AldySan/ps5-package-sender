@@ -23,6 +23,7 @@ QtObject {
     readonly property color toast: dark ? "#262932" : "#20232a"
 
     readonly property int radius: 8
+    readonly property int controlRadius: 6
     readonly property int spacing: 10
     readonly property int controlHeight: 36
 
