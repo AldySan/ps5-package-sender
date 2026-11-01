@@ -157,6 +157,7 @@ private:
     QTimer m_pollTimer;
     QTimer m_offlineDebounce;
     int m_missedPolls = 0;
+    int m_pollCount = 0;
 };
 
 }
