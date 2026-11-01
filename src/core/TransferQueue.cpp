@@ -1,5 +1,6 @@
 #include "TransferQueue.h"
 
+#include <QDateTime>
 #include <QFileInfo>
 #include <QTimer>
 #include <QUuid>
@@ -55,6 +56,7 @@ void TransferQueue::enqueue(const QList<LibraryRow> &rows, bool copy)
         item.format = row.format;
         item.isCopy = copy;
         item.size = row.size;
+        item.started = QDateTime::currentSecsSinceEpoch();
         item.hasIcon = row.hasIcon;
         m_items.append(item);
     }
@@ -265,7 +267,10 @@ void TransferQueue::onReceiverOffline()
     for (QueueItem &item : m_items) {
         if (terminalState(item.state))
             continue;
-        if (item.state == TransferState::Queued || item.state == TransferState::Paused) {
+        if (item.state == TransferState::Queued || item.state == TransferState::Paused
+            || (item.isCopy
+                && (item.state == TransferState::Copying
+                    || item.state == TransferState::Pushing))) {
             item.message = tr("waiting for console…");
             m_model->updateItem(item);
             continue;
@@ -306,7 +311,7 @@ void TransferQueue::finishItem(QueueItem &item, TransferState state,
 void TransferQueue::writeHistory(const QueueItem &item, bool ok, const QString &message)
 {
     HistoryRow row;
-    row.started = 0;
+    row.started = item.started;
     row.finished = QDateTime::currentSecsSinceEpoch();
     row.kind = item.isCopy ? QStringLiteral("copy") : QStringLiteral("install");
     row.name = item.name;
