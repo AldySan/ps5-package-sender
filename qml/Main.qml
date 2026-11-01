@@ -13,6 +13,30 @@ ApplicationWindow {
     color: Theme.background
     visible: true
 
+    palette.window: Theme.surface
+    palette.windowText: Theme.text
+    palette.base: Theme.field
+    palette.text: Theme.text
+    palette.button: Theme.surfaceAlt
+    palette.buttonText: Theme.text
+    palette.highlight: Theme.accent
+    palette.highlightedText: "#ffffff"
+    palette.mid: Theme.border
+    palette.midlight: Theme.border
+    palette.light: Theme.border
+    palette.dark: Theme.accent
+    palette.brightText: "#ffffff"
+    palette.shadow: "#000000"
+    palette.placeholderText: Theme.textMuted
+    palette.link: Theme.accent
+    palette.linkVisited: Theme.accent
+
+    Binding {
+        target: Theme
+        property: "dark"
+        value: app.theme !== "light"
+    }
+
     header: ColumnLayout {
         spacing: 0
 
@@ -74,6 +98,28 @@ ApplicationWindow {
                             font: parent.font
                             verticalAlignment: Text.AlignVCenter
                         }
+                    }
+                }
+
+                Button {
+                    flat: true
+                    implicitHeight: 32
+                    font.pixelSize: 13
+                    text: Theme.dark ? qsTr("☀") : qsTr("☾")
+                    ToolTip.visible: hovered
+                    ToolTip.text: Theme.dark ? qsTr("Switch to light theme")
+                                             : qsTr("Switch to dark theme")
+                    onClicked: app.theme = Theme.dark ? "light" : "dark"
+
+                    background: Rectangle {
+                        radius: Theme.radius
+                        color: Theme.chip
+                    }
+
+                    contentItem: Label {
+                        text: parent.text
+                        color: Theme.text
+                        font: parent.font
                     }
                 }
             }

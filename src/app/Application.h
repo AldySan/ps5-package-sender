@@ -11,6 +11,7 @@
 #include "core/RangeFileServer.h"
 #include "core/ReceiverClient.h"
 #include "core/TransferQueue.h"
+#include "core/UpdateChecker.h"
 
 namespace ps5 {
 
@@ -18,6 +19,7 @@ class Application : public QObject {
     Q_OBJECT
     Q_PROPERTY(QString version READ version CONSTANT)
     Q_PROPERTY(QString title READ title CONSTANT)
+    Q_PROPERTY(QString theme READ theme WRITE setTheme NOTIFY themeChanged)
     Q_PROPERTY(ps5::LibraryModel *libraryModel READ libraryModel CONSTANT)
     Q_PROPERTY(bool scanning READ scanning NOTIFY scanningChanged)
     Q_PROPERTY(QString scanStatus READ scanStatus NOTIFY scanStatusChanged)
@@ -46,12 +48,20 @@ class Application : public QObject {
     Q_PROPERTY(QString catalogUrl READ catalogUrl NOTIFY shareEnabledChanged)
     Q_PROPERTY(QString discoveryStatus READ discoveryStatus NOTIFY discoveringChanged)
     Q_PROPERTY(QVariantList consoles READ consoles NOTIFY consolesChanged)
+    Q_PROPERTY(bool autoCheckUpdates READ autoCheckUpdates WRITE setAutoCheckUpdates
+                   NOTIFY autoCheckUpdatesChanged)
+    Q_PROPERTY(bool checkingUpdate READ checkingUpdate NOTIFY updateStatusChanged)
+    Q_PROPERTY(bool updateAvailable READ updateAvailable NOTIFY updateStatusChanged)
+    Q_PROPERTY(QString latestVersion READ latestVersion NOTIFY updateStatusChanged)
+    Q_PROPERTY(QString releaseUrl READ releaseUrl NOTIFY updateStatusChanged)
 
 public:
     explicit Application(QObject *parent = nullptr);
 
     QString version() const { return m_version; }
     QString title() const { return m_title; }
+    QString theme() const { return m_theme; }
+    void setTheme(const QString &theme);
     LibraryModel *libraryModel() const { return m_library; }
     bool scanning() const { return m_scanning; }
     QString scanStatus() const { return m_scanStatus; }
@@ -83,6 +93,13 @@ public:
     void setShareEnabled(bool on);
     QString catalogUrl() const;
 
+    bool autoCheckUpdates() const { return m_autoCheckUpdates; }
+    void setAutoCheckUpdates(bool on);
+    bool checkingUpdate() const { return m_checkingUpdate; }
+    bool updateAvailable() const { return m_updateAvailable; }
+    QString latestVersion() const { return m_latestVersion; }
+    QString releaseUrl() const { return m_releaseUrl; }
+
     Q_INVOKABLE void addFolder(const QUrl &folder);
     Q_INVOKABLE void addDroppedUrls(const QList<QUrl> &urls);
     Q_INVOKABLE void rescanAll();
@@ -100,11 +117,15 @@ public:
     Q_INVOKABLE bool addCustomScanPath(const QString &path);
     Q_INVOKABLE void removeCustomScanPath(const QString &path);
 
+    Q_INVOKABLE void checkForUpdates();
+    Q_INVOKABLE void openReleasePage();
+
 signals:
     void scanningChanged();
     void scanStatusChanged();
     void lastPickFolderChanged();
     void notify(const QString &message);
+    void themeChanged();
     void psIpChanged();
     void pcIpChanged();
     void pcAddressesChanged();
@@ -116,6 +137,8 @@ signals:
     void destinationChanged();
     void historyChanged();
     void scanPathsChanged();
+    void autoCheckUpdatesChanged();
+    void updateStatusChanged();
 
 private:
     void startScan(const QStringList &roots);
@@ -126,9 +149,11 @@ private:
     void pollReceiver();
     void probeConsoles(const QStringList &ips);
     void saveIpSettings();
+    void runUpdateCheck(bool manual);
 
     QString m_version;
     QString m_title;
+    QString m_theme;
     LibraryModel *m_library = nullptr;
     LibraryScanner *m_scanner = nullptr;
     bool m_scanning = false;
@@ -154,10 +179,17 @@ private:
     QStringList m_scanPaths;
 
     ReceiverClient *m_receiver = nullptr;
+    UpdateChecker *m_updater = nullptr;
     QTimer m_pollTimer;
     QTimer m_offlineDebounce;
     int m_missedPolls = 0;
     int m_pollCount = 0;
+
+    bool m_autoCheckUpdates = true;
+    bool m_checkingUpdate = false;
+    bool m_updateAvailable = false;
+    QString m_latestVersion;
+    QString m_releaseUrl;
 };
 
 }

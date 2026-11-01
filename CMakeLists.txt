@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.21)
 
 project(ps5-package-sender
-    VERSION 0.0.1
+    VERSION 0.0.2
     DESCRIPTION "PS5 package sender desktop client"
     LANGUAGES CXX)
 
@@ -27,6 +27,8 @@ add_library(ps5core STATIC
     src/core/ReceiverClient.cpp
     src/core/ScanPaths.h
     src/core/ScanPaths.cpp
+    src/core/UpdateChecker.h
+    src/core/UpdateChecker.cpp
     src/core/Discovery.h
     src/core/Discovery.cpp
     src/core/RangeFileServer.h
@@ -130,4 +132,7 @@ if(BUILD_TESTS)
     add_executable(scanpathstest tests/scanpathstest.cpp)
     target_link_libraries(scanpathstest PRIVATE ps5core)
     add_test(NAME scanpathstest COMMAND scanpathstest)
+    add_executable(updatecheckertest tests/updatecheckertest.cpp)
+    target_link_libraries(updatecheckertest PRIVATE ps5core)
+    add_test(NAME updatecheckertest COMMAND updatecheckertest)
 endif()
