@@ -2,18 +2,21 @@ pragma Singleton
 import QtQuick
 
 QtObject {
-    readonly property color background: "#17181d"
-    readonly property color surface: "#1f2128"
-    readonly property color surfaceAlt: "#262932"
-    readonly property color border: "#33363f"
-    readonly property color text: "#e8eaf0"
-    readonly property color textMuted: "#9aa0ae"
+    property bool dark: true
+
+    readonly property color background: dark ? "#17181d" : "#f3f4f6"
+    readonly property color surface: dark ? "#1f2128" : "#ffffff"
+    readonly property color surfaceAlt: dark ? "#262932" : "#e9ebef"
+    readonly property color field: dark ? "#1b1d24" : "#ffffff"
+    readonly property color border: dark ? "#33363f" : "#d5d8df"
+    readonly property color text: dark ? "#e8eaf0" : "#1d2129"
+    readonly property color textMuted: dark ? "#9aa0ae" : "#667085"
     readonly property color accent: "#2d7ff9"
-    readonly property color accentSoft: "#2d7ff91a"
-    readonly property color ok: "#3ecf8e"
-    readonly property color warn: "#f5b83d"
-    readonly property color error: "#f0566a"
-    readonly property color chip: "#2b2e38"
+    readonly property color accentSoft: dark ? "#2d7ff91a" : "#2d7ff924"
+    readonly property color ok: dark ? "#3ecf8e" : "#1f9d61"
+    readonly property color warn: dark ? "#f5b83d" : "#b97d10"
+    readonly property color error: dark ? "#f0566a" : "#d23649"
+    readonly property color chip: dark ? "#2b2e38" : "#e4e7ec"
 
     readonly property int radius: 8
     readonly property int spacing: 10

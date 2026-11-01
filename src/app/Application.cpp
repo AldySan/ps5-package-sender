@@ -33,6 +33,8 @@ Application::Application(QObject *parent)
       m_title(QStringLiteral("PS5 Package Sender"))
 {
     const bool dbOk = Database::instance().open();
+    m_theme = Database::instance().setting(QStringLiteral("theme"),
+                                            QStringLiteral("dark"));
 
     m_library = new LibraryModel(this);
     m_library->reload();
@@ -128,6 +130,17 @@ Application::Application(QObject *parent)
 QString Application::lastPickFolder() const
 {
     return Database::instance().setting(QStringLiteral("lastPickFolder"));
+}
+
+void Application::setTheme(const QString &theme)
+{
+    const QString normalized = theme == QStringLiteral("light")
+        ? QStringLiteral("light") : QStringLiteral("dark");
+    if (m_theme == normalized)
+        return;
+    m_theme = normalized;
+    Database::instance().setSetting(QStringLiteral("theme"), m_theme);
+    emit themeChanged();
 }
 
 void Application::setLastPickFolder(const QString &folder)
