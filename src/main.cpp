@@ -1,4 +1,5 @@
 #include <QGuiApplication>
+#include <QIcon>
 #include <QQmlApplicationEngine>
 #include <QQmlContext>
 #include <QQuickStyle>
@@ -14,6 +15,7 @@ int main(int argc, char *argv[])
     app.setOrganizationName("AldySan");
     app.setApplicationName("ps5-package-sender");
     app.setApplicationVersion(APP_VERSION);
+    app.setWindowIcon(QIcon(QStringLiteral(":/icons/app-icon-256.png")));
 
     QQuickStyle::setStyle("Basic");
 
