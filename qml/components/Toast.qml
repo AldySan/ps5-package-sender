@@ -16,7 +16,7 @@ Rectangle {
     width: Math.min(420, (parent ? parent.width : 400) - 40)
     height: label.implicitHeight + 20
     radius: Theme.radius
-    color: "#000000cc"
+    color: Theme.toast
     border.width: 1
     border.color: Theme.border
     anchors.horizontalCenter: parent ? parent.horizontalCenter : undefined
@@ -28,7 +28,7 @@ Rectangle {
         anchors.fill: parent
         anchors.margins: 10
         text: root.message
-        color: "#ffffff"
+        color: Theme.toolTipText
         font.pixelSize: 12
         wrapMode: Text.WordWrap
     }
