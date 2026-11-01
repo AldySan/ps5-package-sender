@@ -22,6 +22,16 @@ Page {
         }
     }
 
+    FileDialog {
+        id: pkgDialog
+        title: qsTr("Select packages and disc images")
+        nameFilters: [qsTr("Packages and images (*.pkg *.exfat *.ffpkg *.ffpfs *.ffpfsc)")]
+        fileMode: FileDialog.OpenFiles
+        currentFolder: app.lastPickFolder.length > 0
+                       ? "file://" + app.lastPickFolder : ""
+        onAccepted: app.addDroppedUrls(selectedFiles)
+    }
+
     ColumnLayout {
         anchors.fill: parent
         anchors.margins: 14
@@ -34,6 +44,12 @@ Page {
                 text: qsTr("+ Add folder")
                 enabled: !app.scanning
                 onClicked: folderDialog.open()
+            }
+
+            Button {
+                text: qsTr("+ Add PKG files")
+                enabled: !app.scanning
+                onClicked: pkgDialog.open()
             }
 
             Button {
