@@ -120,7 +120,7 @@ signals:
     void scanPathsChanged();
 
 private:
-    void startScan(const QStringList &roots, bool rememberRoots);
+    void startScan(const QStringList &roots);
     void pruneMissing();
     void enqueueSelection(bool copy);
     QVariantList buildHistoryRows() const;

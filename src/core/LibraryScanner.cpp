@@ -41,39 +41,45 @@ void LibraryScanner::scan(const QStringList &roots)
             if (db.open()) {
                 int found = 0;
                 int parsed = 0;
-                for (const QString &root : roots) {
-                    QDirIterator it(root, QDir::Files, QDirIterator::Subdirectories);
-                    while (it.hasNext()) {
-                        const QFileInfo fi = it.nextFileInfo();
-                        if (!isLibraryFile(fi.suffix()))
-                            continue;
-                        found++;
-                        const auto hit = known.constFind(fi.absoluteFilePath());
-                        if (hit != known.constEnd()
-                            && hit->first == fi.lastModified().toSecsSinceEpoch()
-                            && hit->second == fi.size()) {
-                            continue;
-                        }
-                        LibraryRow row;
-                        row.path = fi.absoluteFilePath();
-                        row.mtime = fi.lastModified().toSecsSinceEpoch();
-                        const PkgData data = PkgReader::read(fi.absoluteFilePath());
-                        row.title = data.title;
-                        row.titleId = data.titleId;
-                        row.contentId = data.contentId;
-                        row.version = data.version;
-                        row.platform = data.platform;
-                        row.format = data.format;
-                        row.isDlc = data.isDlc;
-                        row.size = data.size;
-                        row.digest = data.digest;
-                        row.icon = data.icon;
-                        if (row.title.isEmpty())
-                            row.title = fi.completeBaseName();
-                        Database::upsertLibraryEntryOn(db, row);
-                        parsed++;
-                        emit progress(found, parsed);
+                const auto processFile = [&](const QFileInfo &fi) {
+                    if (!isLibraryFile(fi.suffix()))
+                        return;
+                    found++;
+                    const auto hit = known.constFind(fi.absoluteFilePath());
+                    if (hit != known.constEnd()
+                        && hit->first == fi.lastModified().toSecsSinceEpoch()
+                        && hit->second == fi.size()) {
+                        return;
                     }
+                    LibraryRow row;
+                    row.path = fi.absoluteFilePath();
+                    row.mtime = fi.lastModified().toSecsSinceEpoch();
+                    const PkgData data = PkgReader::read(fi.absoluteFilePath());
+                    row.title = data.title;
+                    row.titleId = data.titleId;
+                    row.contentId = data.contentId;
+                    row.version = data.version;
+                    row.platform = data.platform;
+                    row.format = data.format;
+                    row.isDlc = data.isDlc;
+                    row.size = data.size;
+                    row.digest = data.digest;
+                    row.icon = data.icon;
+                    if (row.title.isEmpty())
+                        row.title = fi.completeBaseName();
+                    Database::upsertLibraryEntryOn(db, row);
+                    parsed++;
+                    emit progress(found, parsed);
+                };
+                for (const QString &root : roots) {
+                    const QFileInfo info(root);
+                    if (info.isFile()) {
+                        processFile(info);
+                        continue;
+                    }
+                    QDirIterator it(root, QDir::Files, QDirIterator::Subdirectories);
+                    while (it.hasNext())
+                        processFile(it.nextFileInfo());
                 }
             }
         }
