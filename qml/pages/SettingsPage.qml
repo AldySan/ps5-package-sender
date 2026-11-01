@@ -22,7 +22,7 @@ Page {
             Label {
                 text: qsTr("Appearance")
                 color: Theme.text
-                font.pixelSize: 15
+                font.pixelSize: 17
                 font.bold: true
             }
 
@@ -36,13 +36,13 @@ Page {
                     Label {
                         text: qsTr("Dark theme")
                         color: Theme.text
-                        font.pixelSize: 13
+                        font.pixelSize: 15
                     }
 
                     Label {
                         text: qsTr("Switch between the dark and light look. The choice is remembered.")
                         color: Theme.textMuted
-                        font.pixelSize: 11
+                        font.pixelSize: 13
                         wrapMode: Text.WordWrap
                         Layout.fillWidth: true
                     }
@@ -57,7 +57,7 @@ Page {
             Label {
                 text: qsTr("Connection")
                 color: Theme.text
-                font.pixelSize: 15
+                font.pixelSize: 17
                 font.bold: true
             }
 
@@ -70,7 +70,7 @@ Page {
                 Label {
                     text: qsTr("Console IP")
                     color: Theme.textMuted
-                    font.pixelSize: 12
+                    font.pixelSize: 14
                 }
 
                 TextField {
@@ -84,7 +84,7 @@ Page {
                 Label {
                     text: qsTr("PC address")
                     color: Theme.textMuted
-                    font.pixelSize: 12
+                    font.pixelSize: 14
                 }
 
                 ComboBox {
@@ -99,7 +99,7 @@ Page {
             Label {
                 text: qsTr("Scan paths")
                 color: Theme.text
-                font.pixelSize: 15
+                font.pixelSize: 17
                 font.bold: true
             }
 
@@ -112,7 +112,7 @@ Page {
                     + "scans, so dropped images are picked up on its next scan "
                     + "without extra steps.")
                 color: Theme.textMuted
-                font.pixelSize: 11
+                font.pixelSize: 13
                 wrapMode: Text.WordWrap
                 Layout.fillWidth: true
             }
@@ -120,14 +120,14 @@ Page {
             Label {
                 text: qsTr("Storage")
                 color: Theme.text
-                font.pixelSize: 15
+                font.pixelSize: 17
                 font.bold: true
             }
 
             Label {
                 text: qsTr("Database") + ": " + app.databasePath
                 color: Theme.textMuted
-                font.pixelSize: 11
+                font.pixelSize: 13
                 font.family: Theme.mono
                 wrapMode: Text.ElideMiddle
                 Layout.fillWidth: true
@@ -136,7 +136,7 @@ Page {
             Label {
                 text: qsTr("Updates")
                 color: Theme.text
-                font.pixelSize: 15
+                font.pixelSize: 17
                 font.bold: true
             }
 
@@ -150,13 +150,13 @@ Page {
                     Label {
                         text: qsTr("Auto check update")
                         color: Theme.text
-                        font.pixelSize: 13
+                        font.pixelSize: 15
                     }
 
                     Label {
                         text: qsTr("Look for a newer release when the app starts and show a notice when one is found.")
                         color: Theme.textMuted
-                        font.pixelSize: 11
+                        font.pixelSize: 13
                         wrapMode: Text.WordWrap
                         Layout.fillWidth: true
                     }
@@ -174,6 +174,7 @@ Page {
 
                 Button {
                     text: app.checkingUpdate ? qsTr("Checking…") : qsTr("Check for updates")
+                    font.pixelSize: 14
                     enabled: !app.checkingUpdate
                     onClicked: app.checkForUpdates()
                 }
@@ -182,6 +183,7 @@ Page {
                     visible: app.updateAvailable
                     highlighted: true
                     text: qsTr("Download %1").arg(app.latestVersion)
+                    font.pixelSize: 14
                     onClicked: app.openReleasePage()
                 }
 
@@ -192,14 +194,14 @@ Page {
                              && !app.updateAvailable
                     text: qsTr("Up to date — %1 is the latest release").arg(app.latestVersion)
                     color: Theme.textMuted
-                    font.pixelSize: 11
+                    font.pixelSize: 13
                 }
             }
 
             Label {
                 text: qsTr("About")
                 color: Theme.text
-                font.pixelSize: 15
+                font.pixelSize: 17
                 font.bold: true
             }
 
@@ -210,7 +212,7 @@ Page {
                     + "runs pkg-receiver.elf; grab it from "
                     + "AldySan/ps5-package-receiver-elf on GitHub.").arg(app.version)
                 color: Theme.textMuted
-                font.pixelSize: 12
+                font.pixelSize: 14
                 wrapMode: Text.WordWrap
                 Layout.fillWidth: true
             }
