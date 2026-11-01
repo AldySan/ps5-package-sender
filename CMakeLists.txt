@@ -20,6 +20,13 @@ find_package(Qt6 6.5 REQUIRED COMPONENTS Quick QuickControls2 Sql Network Concur
 
 qt_standard_project_setup(REQUIRES 6.5)
 
+add_library(ps5core STATIC
+    src/core/PkgInfo.h
+    src/core/PkgInfo.cpp)
+
+target_include_directories(ps5core PUBLIC src)
+target_link_libraries(ps5core PUBLIC Qt6::Core)
+
 qt_add_executable(ps5-package-sender
     src/main.cpp)
 
@@ -33,7 +40,8 @@ target_link_libraries(ps5-package-sender PRIVATE
     Qt6::QuickControls2
     Qt6::Sql
     Qt6::Network
-    Qt6::Concurrent)
+    Qt6::Concurrent
+    ps5core)
 
 set_source_files_properties(qml/Theme.qml PROPERTIES
     QT_QML_SINGLETON_TYPE TRUE)
@@ -64,4 +72,11 @@ endif()
 if(UNIX AND NOT APPLE)
     set_target_properties(ps5-package-sender PROPERTIES
         INSTALL_RPATH "$ORIGIN/lib")
+endif()
+
+if(BUILD_TESTS)
+    enable_testing()
+    add_executable(pkgparsertest tests/pkgparsertest.cpp)
+    target_link_libraries(pkgparsertest PRIVATE ps5core)
+    add_test(NAME pkgparsertest COMMAND pkgparsertest)
 endif()
