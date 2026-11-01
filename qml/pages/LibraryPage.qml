@@ -22,6 +22,16 @@ Page {
         }
     }
 
+    FileDialog {
+        id: pkgDialog
+        title: qsTr("Select packages and disc images")
+        nameFilters: [qsTr("Packages and images (*.pkg *.exfat *.ffpkg *.ffpfs *.ffpfsc)")]
+        fileMode: FileDialog.OpenFiles
+        currentFolder: app.lastPickFolder.length > 0
+                       ? "file://" + app.lastPickFolder : ""
+        onAccepted: app.addDroppedUrls(selectedFiles)
+    }
+
     ColumnLayout {
         anchors.fill: parent
         anchors.margins: 14
@@ -30,19 +40,25 @@ Page {
         RowLayout {
             spacing: 10
 
-            Button {
+            AppButton {
                 text: qsTr("+ Add folder")
                 enabled: !app.scanning
                 onClicked: folderDialog.open()
             }
 
-            Button {
+            AppButton {
+                text: qsTr("+ Add PKG files")
+                enabled: !app.scanning
+                onClicked: pkgDialog.open()
+            }
+
+            AppButton {
                 text: qsTr("Rescan")
                 enabled: !app.scanning && app.libraryModel.count > 0
                 onClicked: app.rescanAll()
             }
 
-            TextField {
+            AppTextField {
                 id: search
                 Layout.preferredWidth: 260
                 placeholderText: qsTr("Search title or ID")
@@ -97,7 +113,7 @@ Page {
 
             Item { Layout.fillWidth: true }
 
-            Button {
+            AppButton {
                 visible: app.libraryModel.familyFilter.length > 0
                 flat: true
                 text: qsTr("↩ Back to all")
@@ -105,14 +121,14 @@ Page {
                 onClicked: app.libraryModel.familyFilter = ""
             }
 
-            Button {
+            AppButton {
                 text: qsTr("Select all")
                 flat: true
                 font.pixelSize: 12
                 onClicked: app.libraryModel.selectVisible(true)
             }
 
-            Button {
+            AppButton {
                 text: qsTr("Clear")
                 flat: true
                 font.pixelSize: 12
@@ -164,7 +180,7 @@ Page {
 
             Item { Layout.fillWidth: true }
 
-            Button {
+            AppButton {
                 text: qsTr("Send PKG")
                 enabled: page.hasPkgSelection && !app.scanning
                 highlighted: page.hasPkgSelection
@@ -174,7 +190,7 @@ Page {
                 }
             }
 
-            Button {
+            AppButton {
                 text: qsTr("Copy images")
                 enabled: page.hasImageSelection && !app.scanning
                 onClicked: {

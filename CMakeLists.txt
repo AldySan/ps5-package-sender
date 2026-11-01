@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.21)
 
 project(ps5-package-sender
-    VERSION 0.0.2
+    VERSION 0.0.3
     DESCRIPTION "PS5 package sender desktop client"
     LANGUAGES CXX)
 
@@ -79,6 +79,9 @@ qt_add_qml_module(ps5-package-sender
     QML_FILES
         qml/Theme.qml
         qml/Main.qml
+        qml/components/AppButton.qml
+        qml/components/AppComboBox.qml
+        qml/components/AppTextField.qml
         qml/components/GameCard.qml
         qml/components/Toast.qml
         qml/components/StatusBar.qml

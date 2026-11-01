@@ -11,14 +11,19 @@ QtObject {
     readonly property color border: dark ? "#33363f" : "#d5d8df"
     readonly property color text: dark ? "#e8eaf0" : "#1d2129"
     readonly property color textMuted: dark ? "#9aa0ae" : "#667085"
-    readonly property color accent: "#2d7ff9"
-    readonly property color accentSoft: dark ? "#2d7ff91a" : "#2d7ff924"
+    property color accent: "#2d7ff9"
+    readonly property color accentSoft: Qt.rgba(accent.r, accent.g, accent.b,
+                                                    dark ? 0.1 : 0.14)
     readonly property color ok: dark ? "#3ecf8e" : "#1f9d61"
     readonly property color warn: dark ? "#f5b83d" : "#b97d10"
     readonly property color error: dark ? "#f0566a" : "#d23649"
     readonly property color chip: dark ? "#2b2e38" : "#e4e7ec"
+    readonly property color toolTipBase: dark ? "#262932" : "#33373f"
+    readonly property color toolTipText: dark ? "#e8eaf0" : "#f0f2f6"
+    readonly property color toast: dark ? "#262932" : "#20232a"
 
     readonly property int radius: 8
+    readonly property int controlRadius: 6
     readonly property int spacing: 10
     readonly property int controlHeight: 36
 

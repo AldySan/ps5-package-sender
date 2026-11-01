@@ -20,6 +20,8 @@ class Application : public QObject {
     Q_PROPERTY(QString version READ version CONSTANT)
     Q_PROPERTY(QString title READ title CONSTANT)
     Q_PROPERTY(QString theme READ theme WRITE setTheme NOTIFY themeChanged)
+    Q_PROPERTY(QString accentColor READ accentColor WRITE setAccentColor
+                   NOTIFY accentColorChanged)
     Q_PROPERTY(ps5::LibraryModel *libraryModel READ libraryModel CONSTANT)
     Q_PROPERTY(bool scanning READ scanning NOTIFY scanningChanged)
     Q_PROPERTY(QString scanStatus READ scanStatus NOTIFY scanStatusChanged)
@@ -37,6 +39,8 @@ class Application : public QObject {
     Q_PROPERTY(QString psIp READ psIp WRITE setPsIp NOTIFY psIpChanged)
     Q_PROPERTY(QString pcIp READ pcIp WRITE setPcIp NOTIFY pcIpChanged)
     Q_PROPERTY(QStringList pcAddresses READ pcAddresses NOTIFY pcAddressesChanged)
+    Q_PROPERTY(QStringList pcAddressLabels READ pcAddressLabels
+                   NOTIFY pcAddressesChanged)
     Q_PROPERTY(bool hasNetwork READ hasNetwork NOTIFY hasNetworkChanged)
     Q_PROPERTY(bool receiverOnline READ receiverOnline NOTIFY receiverOnlineChanged)
     Q_PROPERTY(bool receiverBusy READ receiverBusy NOTIFY receiverOnlineChanged)
@@ -62,6 +66,8 @@ public:
     QString title() const { return m_title; }
     QString theme() const { return m_theme; }
     void setTheme(const QString &theme);
+    QString accentColor() const { return m_accentColor; }
+    void setAccentColor(const QString &color);
     LibraryModel *libraryModel() const { return m_library; }
     bool scanning() const { return m_scanning; }
     QString scanStatus() const { return m_scanStatus; }
@@ -80,6 +86,7 @@ public:
     QString pcIp() const { return m_pcIp; }
     void setPcIp(const QString &ip);
     QStringList pcAddresses() const { return m_pcAddresses; }
+    QStringList pcAddressLabels() const { return m_pcAddressLabels; }
     bool hasNetwork() const { return !m_pcAddresses.isEmpty(); }
     bool receiverOnline() const { return m_receiverOnline; }
     bool receiverBusy() const { return m_receiverBusy; }
@@ -106,6 +113,7 @@ public:
     Q_INVOKABLE void removeEntry(qlonglong id);
 
     Q_INVOKABLE void detectConsoles();
+    Q_INVOKABLE void cancelDiscovery();
     Q_INVOKABLE void testConnection();
     Q_INVOKABLE void useConsole(const QString &ip);
     Q_INVOKABLE void refreshPcAddresses();
@@ -119,6 +127,7 @@ public:
 
     Q_INVOKABLE void checkForUpdates();
     Q_INVOKABLE void openReleasePage();
+    Q_INVOKABLE void openLink(const QString &url);
 
 signals:
     void scanningChanged();
@@ -126,6 +135,7 @@ signals:
     void lastPickFolderChanged();
     void notify(const QString &message);
     void themeChanged();
+    void accentColorChanged();
     void psIpChanged();
     void pcIpChanged();
     void pcAddressesChanged();
@@ -154,6 +164,7 @@ private:
     QString m_version;
     QString m_title;
     QString m_theme;
+    QString m_accentColor;
     LibraryModel *m_library = nullptr;
     LibraryScanner *m_scanner = nullptr;
     bool m_scanning = false;
@@ -162,6 +173,7 @@ private:
     QString m_psIp;
     QString m_pcIp;
     QStringList m_pcAddresses;
+    QStringList m_pcAddressLabels;
     bool m_receiverOnline = false;
     bool m_receiverBusy = false;
     QString m_receiverBuild;

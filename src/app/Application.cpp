@@ -1,6 +1,7 @@
 #include "Application.h"
 
 #include <QCoreApplication>
+#include <QColor>
 #include <QDir>
 #include <QClipboard>
 #include <QDesktopServices>
@@ -36,6 +37,8 @@ Application::Application(QObject *parent)
     const bool dbOk = Database::instance().open();
     m_theme = Database::instance().setting(QStringLiteral("theme"),
                                             QStringLiteral("dark"));
+    m_accentColor = Database::instance().setting(QStringLiteral("accentColor"),
+                                                 QStringLiteral("#2d7ff9"));
     m_autoCheckUpdates = Database::instance().setting(
         QStringLiteral("autoCheckUpdates"), QStringLiteral("1"))
         != QStringLiteral("0");
@@ -74,6 +77,11 @@ Application::Application(QObject *parent)
         m_discoveryStatus = tr("Done");
         emit discoveringChanged();
         probeConsoles(ips);
+    });
+    connect(m_discovery, &Discovery::cancelled, this, [this] {
+        m_discovering = false;
+        m_discoveryStatus = tr("Cancelled");
+        emit discoveringChanged();
     });
 
     m_server = new RangeFileServer(this);
@@ -152,6 +160,17 @@ void Application::setTheme(const QString &theme)
     m_theme = normalized;
     Database::instance().setSetting(QStringLiteral("theme"), m_theme);
     emit themeChanged();
+}
+
+void Application::setAccentColor(const QString &color)
+{
+    const QColor candidate(color);
+    if (!candidate.isValid() || candidate.alpha() != 255
+        || m_accentColor == color)
+        return;
+    m_accentColor = color;
+    Database::instance().setSetting(QStringLiteral("accentColor"), m_accentColor);
+    emit accentColorChanged();
 }
 
 void Application::setLastPickFolder(const QString &folder)
@@ -258,6 +277,13 @@ void Application::openReleasePage()
     QDesktopServices::openUrl(QUrl(url));
 }
 
+void Application::openLink(const QString &url)
+{
+    if (!url.startsWith(QStringLiteral("https://github.com/AldySan/")))
+        return;
+    QDesktopServices::openUrl(QUrl(url));
+}
+
 void Application::saveIpSettings()
 {
     Database::instance().setSetting(QStringLiteral("psIp"), m_psIp);
@@ -267,10 +293,16 @@ void Application::saveIpSettings()
 void Application::refreshPcAddresses()
 {
     QStringList addresses;
-    for (const LanNetwork &net : Discovery::lanNetworks())
-        addresses.append(net.address.toString());
+    QStringList labels;
+    for (const LanNetwork &net : Discovery::lanNetworks()) {
+        const QString ip = net.address.toString();
+        addresses.append(ip);
+        labels.append(net.name.isEmpty() ? ip
+                        : QStringLiteral("%1 (%2)").arg(ip, net.name));
+    }
     if (m_pcAddresses != addresses) {
         m_pcAddresses = addresses;
+        m_pcAddressLabels = labels;
         emit pcAddressesChanged();
         emit hasNetworkChanged();
     }
@@ -341,6 +373,12 @@ void Application::detectConsoles()
     m_discoveryStatus = tr("Starting…");
     emit discoveringChanged();
     m_discovery->findConsoles();
+}
+
+void Application::cancelDiscovery()
+{
+    if (m_discovering)
+        m_discovery->cancel();
 }
 
 void Application::probeConsoles(const QStringList &ips)
