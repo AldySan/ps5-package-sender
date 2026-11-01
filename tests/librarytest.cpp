@@ -140,6 +140,27 @@ int main(int argc, char *argv[])
     CHECK(db.libraryRows().size() == 3);
     CHECK(db.scannedRoots() == QStringList{dir.path()});
 
+    {
+        ps5::LibraryRow image;
+        image.path = dir.path() + "/dump.exfat";
+        image.title = "Dump Image";
+        image.format = "exfat";
+        image.size = 100;
+        QFile f(image.path);
+        f.open(QIODevice::WriteOnly);
+        f.write(QByteArray(100, 'x'));
+        db.upsertLibraryEntry(image);
+    }
+    model.reload();
+    CHECK(model.rowCount() == 4);
+    model.selectVisible(true);
+    CHECK(model.selectedCount() == 4);
+    CHECK(model.selectedPkgCount() == 3);
+    CHECK(model.selectedImageCount() == 1);
+    model.clearSelection();
+    CHECK(model.selectedPkgCount() == 0);
+    CHECK(model.selectedImageCount() == 0);
+
     if (failures == 0) {
         std::fprintf(stderr, "all library tests passed\n");
         return 0;

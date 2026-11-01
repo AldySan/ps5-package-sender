@@ -24,7 +24,6 @@ class Application : public QObject {
     Q_PROPERTY(QString databasePath READ databasePath CONSTANT)
     Q_PROPERTY(QString lastPickFolder READ lastPickFolder WRITE setLastPickFolder
                    NOTIFY lastPickFolderChanged)
-    Q_PROPERTY(bool canSend READ canSend CONSTANT)
     Q_PROPERTY(ps5::TransferQueue *queue READ queue CONSTANT)
     Q_PROPERTY(QString destination READ destination WRITE setDestination
                    NOTIFY destinationChanged)
@@ -59,7 +58,6 @@ public:
     QString databasePath() const { return Database::instance().databasePath(); }
     QString lastPickFolder() const;
     void setLastPickFolder(const QString &folder);
-    bool canSend() const { return true; }
     TransferQueue *queue() const { return m_queue; }
     QString destination() const;
     void setDestination(const QString &destination);
