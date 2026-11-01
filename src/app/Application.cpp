@@ -23,6 +23,7 @@ namespace {
 
 constexpr int PollIntervalMs = 1000;
 constexpr int OfflineAfterMissedPolls = 3;
+constexpr int SpaceRefreshPolls = 10;
 
 } // namespace
 
@@ -31,7 +32,7 @@ Application::Application(QObject *parent)
       m_version(QCoreApplication::applicationVersion()),
       m_title(QStringLiteral("PS5 Package Sender"))
 {
-    Database::instance().open();
+    const bool dbOk = Database::instance().open();
 
     m_library = new LibraryModel(this);
     m_library->reload();
@@ -95,8 +96,12 @@ Application::Application(QObject *parent)
     m_server->setIconProvider([](const QString &id) {
         return Database::instance().libraryIcon(id.toLongLong());
     });
-    if (!m_server->start())
-        emit notify(tr("Could not bind the PC file server port"));
+    QTimer::singleShot(0, this, [this, dbOk] {
+        if (!dbOk)
+            emit notify(tr("Could not open the settings database — changes will not be saved"));
+        if (!m_server->start())
+            emit notify(tr("Could not bind the PC file server port"));
+    });
 
     m_queue = new TransferQueue(m_receiver, m_server, this);
     m_queue->setPcIp(m_pcIp);
@@ -105,7 +110,6 @@ Application::Application(QObject *parent)
     connect(m_queue, &TransferQueue::notify, this, &Application::notify);
     connect(m_queue, &TransferQueue::queueChanged, this, [this] {
         m_historyRows = buildHistoryRows();
-    refreshScanPaths();
         emit historyChanged();
     });
     m_historyRows = buildHistoryRows();
@@ -220,6 +224,7 @@ void Application::pollReceiver()
                 m_queue->onReceiverOffline();
             if (m_receiverOnline && m_missedPolls >= OfflineAfterMissedPolls) {
                 m_receiverOnline = false;
+                m_pollCount = 0;
                 emit receiverOnlineChanged();
             }
             return;
@@ -231,6 +236,7 @@ void Application::pollReceiver()
         m_receiverOnline = true;
         m_receiverBusy = st.busy;
         if (!wasOnline) {
+            m_pollCount = 0;
             m_receiver->version([this](bool ok, const QString &build) {
                 m_receiverBuild = ok ? build : QString();
                 emit receiverOnlineChanged();
@@ -239,6 +245,14 @@ void Application::pollReceiver()
                 m_freeSpaceText = sp.online
                     ? tr("%1 free of %2").arg(formatSize(sp.free)).arg(formatSize(sp.total))
                     : QString();
+                emit receiverOnlineChanged();
+            });
+        } else if (++m_pollCount % SpaceRefreshPolls == 0) {
+            m_receiver->space([this](const ReceiverSpace &sp) {
+                if (!sp.online)
+                    return;
+                m_freeSpaceText = tr("%1 free of %2")
+                    .arg(formatSize(sp.free)).arg(formatSize(sp.total));
                 emit receiverOnlineChanged();
             });
         }
