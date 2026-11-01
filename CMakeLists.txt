@@ -79,6 +79,9 @@ qt_add_qml_module(ps5-package-sender
     QML_FILES
         qml/Theme.qml
         qml/Main.qml
+        qml/components/AppButton.qml
+        qml/components/AppComboBox.qml
+        qml/components/AppTextField.qml
         qml/components/GameCard.qml
         qml/components/Toast.qml
         qml/components/StatusBar.qml

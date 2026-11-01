@@ -133,7 +133,7 @@ Rectangle {
 
             Item { Layout.fillWidth: true }
 
-            Button {
+            AppButton {
                 visible: model.familyKey.length > 0
                 flat: true
                 text: "🔗"
