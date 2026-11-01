@@ -11,8 +11,9 @@ QtObject {
     readonly property color border: dark ? "#33363f" : "#d5d8df"
     readonly property color text: dark ? "#e8eaf0" : "#1d2129"
     readonly property color textMuted: dark ? "#9aa0ae" : "#667085"
-    readonly property color accent: "#2d7ff9"
-    readonly property color accentSoft: dark ? "#1a2d7ff9" : "#242d7ff9"
+    property color accent: "#2d7ff9"
+    readonly property color accentSoft: Qt.rgba(accent.r, accent.g, accent.b,
+                                                    dark ? 0.1 : 0.14)
     readonly property color ok: dark ? "#3ecf8e" : "#1f9d61"
     readonly property color warn: dark ? "#f5b83d" : "#b97d10"
     readonly property color error: dark ? "#f0566a" : "#d23649"

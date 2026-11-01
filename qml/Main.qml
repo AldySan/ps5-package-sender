@@ -39,6 +39,12 @@ ApplicationWindow {
         value: app.theme !== "light"
     }
 
+    Binding {
+        target: Theme
+        property: "accent"
+        value: app.accentColor
+    }
+
     header: ColumnLayout {
         spacing: 0
 
