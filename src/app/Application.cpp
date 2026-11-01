@@ -97,6 +97,17 @@ Application::Application(QObject *parent)
     if (!m_server->start())
         emit notify(tr("Could not bind the PC file server port"));
 
+    m_queue = new TransferQueue(m_receiver, m_server, this);
+    m_queue->setPcIp(m_pcIp);
+    m_queue->setDestination(Database::instance().setting(
+        QStringLiteral("destination"), QStringLiteral("/data/homebrew")));
+    connect(m_queue, &TransferQueue::notify, this, &Application::notify);
+    connect(m_queue, &TransferQueue::queueChanged, this, [this] {
+        m_historyRows = buildHistoryRows();
+        emit historyChanged();
+    });
+    m_historyRows = buildHistoryRows();
+
     refreshPcAddresses();
 
     m_pollTimer.setInterval(PollIntervalMs);
@@ -139,6 +150,8 @@ void Application::setPcIp(const QString &ip)
     m_pcIp = trimmed;
     saveIpSettings();
     emit pcIpChanged();
+    if (m_queue)
+        m_queue->setPcIp(m_pcIp);
     if (m_shareEnabled)
         m_server->setAnnouncing(true, m_pcIp);
 }
@@ -201,12 +214,16 @@ void Application::pollReceiver()
     m_receiver->status([this](const ReceiverStatus &st) {
         if (!st.online) {
             m_missedPolls++;
+            if (m_missedPolls == OfflineAfterMissedPolls && m_queue)
+                m_queue->onReceiverOffline();
             if (m_receiverOnline && m_missedPolls >= OfflineAfterMissedPolls) {
                 m_receiverOnline = false;
                 emit receiverOnlineChanged();
             }
             return;
         }
+        if (m_queue)
+            m_queue->onReceiverStatus(st);
         const bool wasOnline = m_receiverOnline;
         m_missedPolls = 0;
         m_receiverOnline = true;
@@ -262,6 +279,54 @@ void Application::probeConsoles(const QStringList &ips)
                 emit notify(tr("%1 console(s) found").arg(m_consoles.size()));
         });
     }
+}
+
+QString Application::destination() const
+{
+    return m_queue ? m_queue->destination() : QStringLiteral("/data/homebrew");
+}
+
+void Application::setDestination(const QString &destination)
+{
+    if (!m_queue)
+        return;
+    m_queue->setDestination(destination);
+    Database::instance().setSetting(QStringLiteral("destination"), destination);
+    emit destinationChanged();
+}
+
+void Application::sendSelected()
+{
+    enqueueSelection(false);
+}
+
+void Application::copySelectedImages()
+{
+    enqueueSelection(true);
+}
+
+void Application::enqueueSelection(bool copy)
+{
+    const QList<qlonglong> ids = m_library->selectedIds();
+    if (ids.isEmpty())
+        return;
+    if (m_psIp.isEmpty()) {
+        emit notify(tr("Set the console IP first (Detect helps)"));
+        return;
+    }
+    QList<LibraryRow> rows;
+    for (const LibraryRow &row : Database::instance().libraryRows()) {
+        if (!ids.contains(row.id))
+            continue;
+        const bool isImage = PkgReader::isImageFile(row.format);
+        if (copy == isImage)
+            rows.append(row);
+    }
+    if (rows.isEmpty())
+        return;
+    m_queue->enqueue(rows, copy);
+    emit notify(copy ? tr("%1 image(s) queued for copy").arg(rows.size())
+                     : tr("%1 package(s) queued for install").arg(rows.size()));
 }
 
 void Application::copyToClipboard(const QString &text)
@@ -346,6 +411,38 @@ void Application::startScan(const QStringList &roots, bool rememberRoots)
     emit scanningChanged();
     emit scanStatusChanged();
     m_scanner->scan(roots);
+}
+
+void Application::reloadHistory()
+{
+    m_historyRows = buildHistoryRows();
+    emit historyChanged();
+}
+
+void Application::clearHistory()
+{
+    Database::instance().clearHistory();
+    m_historyRows = buildHistoryRows();
+    emit historyChanged();
+}
+
+QVariantList Application::buildHistoryRows() const
+{
+    QVariantList out;
+    for (const HistoryRow &row : Database::instance().historyRows(300)) {
+        QVariantMap map;
+        map.insert(QStringLiteral("kind"), row.kind);
+        map.insert(QStringLiteral("name"), row.name);
+        map.insert(QStringLiteral("remotePath"), row.remotePath);
+        map.insert(QStringLiteral("sizeText"), formatSize(row.size));
+        map.insert(QStringLiteral("ok"), row.ok);
+        map.insert(QStringLiteral("message"), row.message);
+        map.insert(QStringLiteral("time"),
+                   QDateTime::fromSecsSinceEpoch(row.finished).toString(
+                       QStringLiteral("yyyy-MM-dd hh:mm")));
+        out.append(map);
+    }
+    return out;
 }
 
 void Application::pruneMissing()
