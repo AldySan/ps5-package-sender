@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="resources/app-icon.svg" width="144" alt="PS5 Package Sender" />
+</p>
+
 # PS5 Package Sender
 
 [![Build](https://github.com/AldySan/ps5-package-sender/actions/workflows/build.yml/badge.svg)](https://github.com/AldySan/ps5-package-sender/actions/workflows/build.yml)

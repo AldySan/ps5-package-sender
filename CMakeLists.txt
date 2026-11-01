@@ -47,7 +47,8 @@ target_include_directories(ps5core PUBLIC src)
 target_link_libraries(ps5core PUBLIC Qt6::Core Qt6::Sql Qt6::Network Qt6::Concurrent)
 
 qt_add_executable(ps5-package-sender
-    src/main.cpp)
+    src/main.cpp
+    resources/app-icon.qrc)
 
 target_include_directories(ps5-package-sender PRIVATE src)
 
@@ -91,8 +92,14 @@ set_target_properties(ps5-package-sender PROPERTIES
     MACOSX_BUNDLE_SHORT_VERSION_STRING ${PROJECT_VERSION})
 
 if(WIN32)
+    file(COPY "${CMAKE_CURRENT_SOURCE_DIR}/resources/app-icon.ico"
+         DESTINATION "${CMAKE_CURRENT_BINARY_DIR}/resources")
+    configure_file(resources/app-icon.rc.in
+        "${CMAKE_CURRENT_BINARY_DIR}/resources/app-icon.rc" @ONLY)
     set_target_properties(ps5-package-sender PROPERTIES
         WIN32_EXECUTABLE TRUE)
+    target_sources(ps5-package-sender PRIVATE
+        "${CMAKE_CURRENT_BINARY_DIR}/resources/app-icon.rc")
 endif()
 
 if(UNIX AND NOT APPLE)
