@@ -1,6 +1,7 @@
 #include "Application.h"
 
 #include <QCoreApplication>
+#include <QColor>
 #include <QDir>
 #include <QClipboard>
 #include <QDesktopServices>
@@ -36,6 +37,8 @@ Application::Application(QObject *parent)
     const bool dbOk = Database::instance().open();
     m_theme = Database::instance().setting(QStringLiteral("theme"),
                                             QStringLiteral("dark"));
+    m_accentColor = Database::instance().setting(QStringLiteral("accentColor"),
+                                                 QStringLiteral("#2d7ff9"));
     m_autoCheckUpdates = Database::instance().setting(
         QStringLiteral("autoCheckUpdates"), QStringLiteral("1"))
         != QStringLiteral("0");
@@ -152,6 +155,17 @@ void Application::setTheme(const QString &theme)
     m_theme = normalized;
     Database::instance().setSetting(QStringLiteral("theme"), m_theme);
     emit themeChanged();
+}
+
+void Application::setAccentColor(const QString &color)
+{
+    const QColor candidate(color);
+    if (!candidate.isValid() || candidate.alpha() != 255
+        || m_accentColor == color)
+        return;
+    m_accentColor = color;
+    Database::instance().setSetting(QStringLiteral("accentColor"), m_accentColor);
+    emit accentColorChanged();
 }
 
 void Application::setLastPickFolder(const QString &folder)

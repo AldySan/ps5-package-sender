@@ -54,6 +54,54 @@ Page {
                 }
             }
 
+            RowLayout {
+                Layout.fillWidth: true
+
+                ColumnLayout {
+                    spacing: 2
+                    Layout.fillWidth: true
+
+                    Label {
+                        text: qsTr("Accent color")
+                        color: Theme.text
+                        font.pixelSize: 15
+                    }
+
+                    Label {
+                        text: qsTr("Tints buttons, highlights and the active tab. The choice is remembered.")
+                        color: Theme.textMuted
+                        font.pixelSize: 13
+                        wrapMode: Text.WordWrap
+                        Layout.fillWidth: true
+                    }
+                }
+
+                Row {
+                    spacing: 10
+
+                    Repeater {
+                        model: ["#2d7ff9", "#7c5cff", "#e0517d", "#ee8034", "#26a269"]
+
+                        delegate: Rectangle {
+                            required property string modelData
+                            width: 26
+                            height: 26
+                            radius: 13
+                            color: modelData
+                            border.width: app.accentColor === modelData ? 2 : 1
+                            border.color: app.accentColor === modelData
+                                          ? Theme.text : Theme.border
+
+                            MouseArea {
+                                anchors.fill: parent
+                                cursorShape: Qt.PointingHandCursor
+                                onClicked: app.accentColor = parent.modelData
+                            }
+                        }
+                    }
+                }
+            }
+
             Label {
                 text: qsTr("Connection")
                 color: Theme.text
