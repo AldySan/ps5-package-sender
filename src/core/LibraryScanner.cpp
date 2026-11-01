@@ -1,0 +1,87 @@
+#include "LibraryScanner.h"
+
+#include <QDirIterator>
+#include <QFileInfo>
+#include <QSqlDatabase>
+#include <QtConcurrent/QtConcurrentRun>
+
+#include "core/PkgInfo.h"
+#include "db/Database.h"
+
+namespace ps5 {
+
+namespace {
+
+bool isLibraryFile(const QString &suffix)
+{
+    const QString s = suffix.toLower();
+    return s == QLatin1String("pkg") || s == QLatin1String("exfat")
+        || s == QLatin1String("ffpkg") || s == QLatin1String("ffpfsc")
+        || s == QLatin1String("ffpfs");
+}
+
+} // namespace
+
+void LibraryScanner::scan(const QStringList &roots)
+{
+    if (m_running)
+        return;
+    m_running = true;
+
+    QHash<QString, QPair<qint64, qint64>> known;
+    for (const LibraryRow &r : Database::instance().libraryRows())
+        known.insert(r.path, qMakePair(r.mtime, r.size));
+
+    (void)QtConcurrent::run([this, roots, known] {
+        const QString connectionName = QStringLiteral("libraryscan");
+        {
+            QSqlDatabase db = QSqlDatabase::addDatabase(
+                QStringLiteral("QSQLITE"), connectionName);
+            db.setDatabaseName(Database::instance().databasePath());
+            if (db.open()) {
+                int found = 0;
+                int parsed = 0;
+                for (const QString &root : roots) {
+                    QDirIterator it(root, QDir::Files, QDirIterator::Subdirectories);
+                    while (it.hasNext()) {
+                        const QFileInfo fi = it.nextFileInfo();
+                        if (!isLibraryFile(fi.suffix()))
+                            continue;
+                        found++;
+                        const auto hit = known.constFind(fi.absoluteFilePath());
+                        if (hit != known.constEnd()
+                            && hit->first == fi.lastModified().toSecsSinceEpoch()
+                            && hit->second == fi.size()) {
+                            continue;
+                        }
+                        LibraryRow row;
+                        row.path = fi.absoluteFilePath();
+                        row.mtime = fi.lastModified().toSecsSinceEpoch();
+                        const PkgData data = PkgReader::read(fi.absoluteFilePath());
+                        row.title = data.title;
+                        row.titleId = data.titleId;
+                        row.contentId = data.contentId;
+                        row.version = data.version;
+                        row.platform = data.platform;
+                        row.format = data.format;
+                        row.isDlc = data.isDlc;
+                        row.size = data.size;
+                        row.digest = data.digest;
+                        row.icon = data.icon;
+                        if (row.title.isEmpty())
+                            row.title = fi.completeBaseName();
+                        Database::upsertLibraryEntryOn(db, row);
+                        parsed++;
+                        emit progress(found, parsed);
+                    }
+                }
+            }
+        }
+        QSqlDatabase::removeDatabase(connectionName);
+        emit finished();
+        QMetaObject::invokeMethod(this, [this] { m_running = false; },
+                                  Qt::QueuedConnection);
+    });
+}
+
+}
