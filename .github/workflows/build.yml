@@ -42,12 +42,15 @@ jobs:
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
-          windeployqt --release --qmldir qml build/bin/Release/ps5-package-sender.exe
+          windeployqt --release --qmldir qml --no-translations --no-opengl-sw build/bin/Release/ps5-package-sender.exe
           $version = (Select-String -Path CMakeLists.txt -Pattern 'VERSION (\d+\.\d+\.\d+)' |
                       Select-Object -First 1).Matches.Groups[1].Value
           $stage = "stage/ps5-package-sender-$version-windows-x64"
           New-Item -ItemType Directory -Force -Path $stage | Out-Null
           Copy-Item build/bin/Release/* $stage -Recurse
+          if (Test-Path "$stage/qmltooling") {
+            Remove-Item -Recurse -Force "$stage/qmltooling"
+          }
           Compress-Archive -Path $stage -DestinationPath "ps5-package-sender-$version-windows-x64.zip"
 
       - name: Deploy portable (Linux)
