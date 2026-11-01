@@ -71,6 +71,19 @@ static QString makePkg(const QString &dir, const char *title)
     return path;
 }
 
+static void scanAndWait(ps5::LibraryScanner &scanner, const QStringList &roots)
+{
+    QEventLoop loop;
+    QObject::connect(&scanner, &ps5::LibraryScanner::finished, &loop,
+                     &QEventLoop::quit);
+    QTimer::singleShot(15000, &loop, &QEventLoop::quit);
+    scanner.scan(roots);
+    loop.exec();
+    QEventLoop flush;
+    QTimer::singleShot(0, &flush, &QEventLoop::quit);
+    flush.exec();
+}
+
 int main(int argc, char *argv[])
 {
     QCoreApplication app(argc, argv);
@@ -88,14 +101,7 @@ int main(int argc, char *argv[])
     makePkg(dir.path(), "Beta Game");
     db.addScannedRoot(dir.path());
 
-    {
-        QEventLoop loop;
-        QObject::connect(&scanner, &ps5::LibraryScanner::finished, &loop,
-                         &QEventLoop::quit);
-        QTimer::singleShot(15000, &loop, &QEventLoop::quit);
-        scanner.scan(db.scannedRoots());
-        loop.exec();
-    }
+    scanAndWait(scanner, db.scannedRoots());
 
     const QList<ps5::LibraryRow> rows = db.libraryRows();
     CHECK(rows.size() == 2);
@@ -126,6 +132,11 @@ int main(int argc, char *argv[])
     db.setSetting("k", "v");
     CHECK(db.setting("k") == "v");
     CHECK(db.setting("missing", "def") == "def");
+
+    const QString lone = makePkg(dir.path(), "Lone Game");
+    scanAndWait(scanner, {lone});
+    CHECK(db.libraryRows().size() == 3);
+    CHECK(db.scannedRoots() == QStringList{dir.path()});
 
     if (failures == 0) {
         std::fprintf(stderr, "all library tests passed\n");

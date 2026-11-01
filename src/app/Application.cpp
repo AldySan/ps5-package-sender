@@ -117,7 +117,7 @@ Application::Application(QObject *parent)
     m_pollTimer.start();
 
     if (!Database::instance().scannedRoots().isEmpty())
-        startScan(Database::instance().scannedRoots(), false);
+        startScan(Database::instance().scannedRoots());
 }
 
 QString Application::lastPickFolder() const
@@ -366,36 +366,34 @@ void Application::addFolder(const QUrl &folder)
     if (path.isEmpty() || !QDir(path).exists())
         return;
     Database::instance().addScannedRoot(path);
-    startScan({path}, false);
+    startScan({path});
 }
 
 void Application::addDroppedUrls(const QList<QUrl> &urls)
 {
     QStringList roots;
+    QStringList files;
     for (const QUrl &url : urls) {
         const QString local = url.toLocalFile();
         if (local.isEmpty())
             continue;
         const QFileInfo fi(local);
         if (fi.isDir()) {
-            Database::instance().addScannedRoot(fi.absolutePath());
-            roots.append(fi.absolutePath());
+            Database::instance().addScannedRoot(fi.absoluteFilePath());
+            roots.append(fi.absoluteFilePath());
         } else if (fi.isFile()) {
-            const QString dirPath = fi.absolutePath();
-            Database::instance().addScannedRoot(dirPath);
-            if (!roots.contains(dirPath))
-                roots.append(dirPath);
+            files.append(fi.absoluteFilePath());
         }
     }
-    if (!roots.isEmpty())
-        startScan(roots, false);
+    if (!roots.isEmpty() || !files.isEmpty())
+        startScan(roots + files);
 }
 
 void Application::rescanAll()
 {
     const QStringList roots = Database::instance().scannedRoots();
     if (!roots.isEmpty())
-        startScan(roots, false);
+        startScan(roots);
 }
 
 void Application::removeEntry(qlonglong id)
@@ -403,11 +401,10 @@ void Application::removeEntry(qlonglong id)
     m_library->removeEntry(id);
 }
 
-void Application::startScan(const QStringList &roots, bool rememberRoots)
+void Application::startScan(const QStringList &roots)
 {
     if (m_scanning)
         return;
-    Q_UNUSED(rememberRoots);
     m_scanning = true;
     m_scanStatus = tr("Scanning folders…");
     emit scanningChanged();
