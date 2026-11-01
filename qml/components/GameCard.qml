@@ -62,7 +62,7 @@ Rectangle {
                 width: platformLabel.implicitWidth + 12
                 height: platformLabel.implicitHeight + 6
                 radius: 4
-                color: model.platform === "PS5" ? "#2d7ff933" : "#f5b83d33"
+                color: model.platform === "PS5" ? "#332d7ff9" : "#33f5b83d"
                 visible: model.platform.length > 0
 
                 Label {
