@@ -28,7 +28,7 @@ Rectangle {
         anchors.fill: parent
         anchors.margins: 10
         text: root.message
-        color: Theme.text
+        color: "#ffffff"
         font.pixelSize: 12
         wrapMode: Text.WordWrap
     }
