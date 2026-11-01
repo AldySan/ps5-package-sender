@@ -30,6 +30,8 @@ ApplicationWindow {
     palette.placeholderText: Theme.textMuted
     palette.link: Theme.accent
     palette.linkVisited: Theme.accent
+    palette.toolTipBase: Theme.toolTipBase
+    palette.toolTipText: Theme.toolTipText
 
     Binding {
         target: Theme
