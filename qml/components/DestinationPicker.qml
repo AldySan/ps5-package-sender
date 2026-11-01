@@ -31,7 +31,7 @@ ColumnLayout {
             onActivated: index => app.destination = app.scanPaths[index]
 
             delegate: ItemDelegate {
-                required property var model
+                required property string modelData
                 required property int index
                 width: pathBox.width
                 height: 34
