@@ -2,12 +2,22 @@
 
 #include <QCoreApplication>
 #include <QDir>
+
+#include <memory>
 #include <QFileInfo>
 #include <QUrl>
 
 #include "db/Database.h"
+#include "util/Format.h"
 
 namespace ps5 {
+
+namespace {
+
+constexpr int PollIntervalMs = 1000;
+constexpr int OfflineAfterMissedPolls = 3;
+
+} // namespace
 
 Application::Application(QObject *parent)
     : QObject(parent),
@@ -33,6 +43,29 @@ Application::Application(QObject *parent)
         m_library->reload();
     });
 
+    m_receiver = new ReceiverClient(this);
+    m_psIp = Database::instance().setting(QStringLiteral("psIp"));
+    m_pcIp = Database::instance().setting(QStringLiteral("pcIp"));
+    m_receiver->setConsoleIp(m_psIp);
+
+    m_discovery = new Discovery(this);
+    connect(m_discovery, &Discovery::progressMessage, this, [this](const QString &msg) {
+        m_discoveryStatus = msg;
+        emit discoveringChanged();
+    });
+    connect(m_discovery, &Discovery::consolesFound, this, [this](const QStringList &ips) {
+        m_discovering = false;
+        m_discoveryStatus = tr("Done");
+        emit discoveringChanged();
+        probeConsoles(ips);
+    });
+
+    refreshPcAddresses();
+
+    m_pollTimer.setInterval(PollIntervalMs);
+    connect(&m_pollTimer, &QTimer::timeout, this, &Application::pollReceiver);
+    m_pollTimer.start();
+
     if (!Database::instance().scannedRoots().isEmpty())
         startScan(Database::instance().scannedRoots(), false);
 }
@@ -46,6 +79,149 @@ void Application::setLastPickFolder(const QString &folder)
 {
     Database::instance().setSetting(QStringLiteral("lastPickFolder"), folder);
     emit lastPickFolderChanged();
+}
+
+void Application::setPsIp(const QString &ip)
+{
+    const QString trimmed = ip.trimmed();
+    if (m_psIp == trimmed)
+        return;
+    m_psIp = trimmed;
+    m_receiver->setConsoleIp(m_psIp);
+    saveIpSettings();
+    m_missedPolls = 0;
+    pollReceiver();
+    emit psIpChanged();
+}
+
+void Application::setPcIp(const QString &ip)
+{
+    const QString trimmed = ip.trimmed();
+    if (m_pcIp == trimmed)
+        return;
+    m_pcIp = trimmed;
+    saveIpSettings();
+    emit pcIpChanged();
+}
+
+void Application::saveIpSettings()
+{
+    Database::instance().setSetting(QStringLiteral("psIp"), m_psIp);
+    Database::instance().setSetting(QStringLiteral("pcIp"), m_pcIp);
+}
+
+void Application::refreshPcAddresses()
+{
+    QStringList addresses;
+    for (const LanNetwork &net : Discovery::lanNetworks())
+        addresses.append(net.address.toString());
+    if (m_pcAddresses != addresses) {
+        m_pcAddresses = addresses;
+        emit pcAddressesChanged();
+        emit hasNetworkChanged();
+    }
+    if (!m_pcIp.isEmpty() && m_pcAddresses.contains(m_pcIp))
+        return;
+    const QString best = Discovery::bestPcIpFor(Discovery::lanNetworks(), m_psIp);
+    if (!best.isEmpty())
+        setPcIp(best);
+}
+
+void Application::pollReceiver()
+{
+    if (m_psIp.isEmpty()) {
+        if (m_receiverOnline) {
+            m_receiverOnline = false;
+            emit receiverOnlineChanged();
+        }
+        return;
+    }
+    m_receiver->status([this](const ReceiverStatus &st) {
+        if (!st.online) {
+            m_missedPolls++;
+            if (m_receiverOnline && m_missedPolls >= OfflineAfterMissedPolls) {
+                m_receiverOnline = false;
+                emit receiverOnlineChanged();
+            }
+            return;
+        }
+        const bool wasOnline = m_receiverOnline;
+        m_missedPolls = 0;
+        m_receiverOnline = true;
+        m_receiverBusy = st.busy;
+        if (!wasOnline) {
+            m_receiver->version([this](bool ok, const QString &build) {
+                m_receiverBuild = ok ? build : QString();
+                emit receiverOnlineChanged();
+            });
+            m_receiver->space([this](const ReceiverSpace &sp) {
+                m_freeSpaceText = sp.online
+                    ? tr("%1 free of %2").arg(formatSize(sp.free)).arg(formatSize(sp.total))
+                    : QString();
+                emit receiverOnlineChanged();
+            });
+        }
+        emit receiverOnlineChanged();
+    });
+}
+
+void Application::detectConsoles()
+{
+    if (m_discovering)
+        return;
+    refreshPcAddresses();
+    m_discovering = true;
+    m_discoveryStatus = tr("Starting…");
+    emit discoveringChanged();
+    m_discovery->findConsoles();
+}
+
+void Application::probeConsoles(const QStringList &ips)
+{
+    m_consoles.clear();
+    emit consolesChanged();
+    if (ips.isEmpty()) {
+        emit notify(tr("No console found — is the receiver ELF running?"));
+        return;
+    }
+
+    const auto remaining = std::make_shared<int>(ips.size());
+    for (const QString &ip : ips) {
+        auto *client = new ReceiverClient(this);
+        client->setConsoleIp(ip);
+        client->status([this, client, ip, remaining](const ReceiverStatus &st) {
+            client->deleteLater();
+            QVariantMap entry;
+            entry.insert(QStringLiteral("ip"), ip);
+            entry.insert(QStringLiteral("verified"), st.online);
+            entry.insert(QStringLiteral("busy"), st.busy);
+            m_consoles.append(entry);
+            emit consolesChanged();
+            if (--(*remaining) == 0)
+                emit notify(tr("%1 console(s) found").arg(m_consoles.size()));
+        });
+    }
+}
+
+void Application::testConnection()
+{
+    if (m_psIp.isEmpty()) {
+        emit notify(tr("Set the console IP first"));
+        return;
+    }
+    m_receiver->version([this](bool ok, const QString &build) {
+        if (ok)
+            emit notify(tr("Receiver online (%1)").arg(build.isEmpty()
+                ? tr("unknown build") : build));
+        else
+            emit notify(tr("Receiver not answering on %1").arg(m_psIp));
+    });
+}
+
+void Application::useConsole(const QString &ip)
+{
+    setPsIp(ip);
+    emit notify(tr("Console set to %1").arg(ip));
 }
 
 void Application::addFolder(const QUrl &folder)
@@ -66,11 +242,10 @@ void Application::addDroppedUrls(const QList<QUrl> &urls)
             continue;
         const QFileInfo fi(local);
         if (fi.isDir()) {
-            Database::instance().addScannedRoot(fi.absoluteFilePath());
-            roots.append(fi.absoluteFilePath());
+            Database::instance().addScannedRoot(fi.absolutePath());
+            roots.append(fi.absolutePath());
         } else if (fi.isFile()) {
-            QDir dir = fi.absoluteDir();
-            const QString dirPath = dir.absolutePath();
+            const QString dirPath = fi.absolutePath();
             Database::instance().addScannedRoot(dirPath);
             if (!roots.contains(dirPath))
                 roots.append(dirPath);

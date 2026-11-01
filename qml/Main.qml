@@ -13,58 +13,74 @@ ApplicationWindow {
     color: Theme.background
     visible: true
 
-    header: ToolBar {
-        height: 52
-        background: Rectangle { color: Theme.surface }
+    header: ColumnLayout {
+        spacing: 0
 
-        RowLayout {
-            anchors.fill: parent
-            anchors.leftMargin: 16
-            anchors.rightMargin: 16
-            spacing: 12
+        Rectangle {
+            Layout.fillWidth: true
+            implicitHeight: 46
+            color: Theme.surface
 
-            Label {
-                text: "PS5 Package Sender"
-                font.pixelSize: 17
-                font.bold: true
-                color: Theme.text
-            }
+            RowLayout {
+                anchors.fill: parent
+                anchors.leftMargin: 16
+                anchors.rightMargin: 16
+                spacing: 12
 
-            Label {
-                text: app.version
-                color: Theme.textMuted
-                font.pixelSize: 12
-            }
+                Label {
+                    text: "PS5 Package Sender"
+                    font.pixelSize: 16
+                    font.bold: true
+                    color: Theme.text
+                }
 
-            Item { Layout.fillWidth: true }
+                Label {
+                    text: app.version
+                    color: Theme.textMuted
+                    font.pixelSize: 12
+                }
 
-            Repeater {
-                model: ["Library", "Queue", "History", "Settings"]
+                Item { Layout.fillWidth: true }
 
-                delegate: Button {
-                    readonly property bool active: pages.currentIndex === index
-                    flat: true
-                    text: modelData
-                    implicitHeight: 34
-                    font.pixelSize: 13
-                    font.bold: active
-                    onClicked: pages.currentIndex = index
+                Label {
+                    visible: app.scanning
+                    text: app.scanStatus
+                    color: Theme.textMuted
+                    font.pixelSize: 11
+                }
 
-                    background: Rectangle {
-                        radius: Theme.radius
-                        color: active ? Theme.accentSoft : "transparent"
-                        border.width: active ? 1 : 0
-                        border.color: Theme.accent
-                    }
+                Repeater {
+                    model: ["Library", "Queue", "History", "Settings"]
 
-                    contentItem: Label {
-                        text: parent.text
-                        color: parent.active ? Theme.accent : Theme.textMuted
-                        font: parent.font
-                        verticalAlignment: Text.AlignVCenter
+                    delegate: Button {
+                        readonly property bool active: pages.currentIndex === index
+                        flat: true
+                        text: qsTr(modelData)
+                        implicitHeight: 32
+                        font.pixelSize: 13
+                        font.bold: active
+                        onClicked: pages.currentIndex = index
+
+                        background: Rectangle {
+                            radius: Theme.radius
+                            color: active ? Theme.accentSoft : "transparent"
+                            border.width: active ? 1 : 0
+                            border.color: Theme.accent
+                        }
+
+                        contentItem: Label {
+                            text: parent.text
+                            color: parent.active ? Theme.accent : Theme.textMuted
+                            font: parent.font
+                            verticalAlignment: Text.AlignVCenter
+                        }
                     }
                 }
             }
+        }
+
+        StatusBar {
+            Layout.fillWidth: true
         }
     }
 
