@@ -24,7 +24,8 @@ ApplicationWindow {
     palette.mid: Theme.border
     palette.midlight: Theme.border
     palette.light: Theme.border
-    palette.dark: Theme.border
+    palette.dark: Theme.accent
+    palette.brightText: "#ffffff"
     palette.shadow: "#000000"
     palette.placeholderText: Theme.textMuted
     palette.link: Theme.accent
