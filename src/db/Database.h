@@ -21,6 +21,7 @@ struct LibraryRow {
     qint64 size = 0;
     qint64 mtime = 0;
     QString digest;
+    bool hasIcon = false;
     QByteArray icon;
 };
 

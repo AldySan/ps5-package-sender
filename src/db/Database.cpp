@@ -57,6 +57,7 @@ bool Database::open()
 
     QSqlQuery q;
     q.exec(QStringLiteral("PRAGMA journal_mode=WAL"));
+    q.exec(QStringLiteral("PRAGMA busy_timeout=5000"));
     q.exec(QStringLiteral("CREATE TABLE IF NOT EXISTS settings ("
                           "key TEXT PRIMARY KEY, value TEXT)"));
     q.exec(QStringLiteral("CREATE TABLE IF NOT EXISTS library ("
@@ -143,12 +144,18 @@ qlonglong Database::upsertLibraryEntry(const LibraryRow &row)
 
 void Database::removeLibraryEntries(const QList<qlonglong> &ids)
 {
+    if (ids.isEmpty())
+        return;
+    QSqlQuery begin;
+    begin.exec(QStringLiteral("BEGIN"));
     for (qlonglong id : ids) {
         QSqlQuery q;
         q.prepare(QStringLiteral("DELETE FROM library WHERE id = ?"));
         q.addBindValue(id);
         q.exec();
     }
+    QSqlQuery commit;
+    commit.exec(QStringLiteral("COMMIT"));
 }
 
 QList<LibraryRow> Database::libraryRows()
@@ -157,7 +164,8 @@ QList<LibraryRow> Database::libraryRows()
     QSqlQuery q;
     q.exec(QStringLiteral(
         "SELECT id, path, title, title_id, content_id, version, platform, format,"
-        " is_dlc, size, mtime, digest, icon FROM library ORDER BY title COLLATE NOCASE"));
+        " is_dlc, size, mtime, digest, length(icon) > 0 FROM library"
+        " ORDER BY title COLLATE NOCASE"));
     while (q.next()) {
         LibraryRow r;
         r.id = q.value(0).toLongLong();
@@ -172,7 +180,7 @@ QList<LibraryRow> Database::libraryRows()
         r.size = q.value(9).toLongLong();
         r.mtime = q.value(10).toLongLong();
         r.digest = q.value(11).toString();
-        r.icon = q.value(12).toByteArray();
+        r.hasIcon = q.value(12).toBool();
         out.append(r);
     }
     return out;

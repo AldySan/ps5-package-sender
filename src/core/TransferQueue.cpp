@@ -55,7 +55,7 @@ void TransferQueue::enqueue(const QList<LibraryRow> &rows, bool copy)
         item.format = row.format;
         item.isCopy = copy;
         item.size = row.size;
-        item.hasIcon = !row.icon.isEmpty();
+        item.hasIcon = row.hasIcon;
         m_items.append(item);
     }
     m_model->setItems(m_items);

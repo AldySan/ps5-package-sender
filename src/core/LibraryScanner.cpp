@@ -3,6 +3,7 @@
 #include <QDirIterator>
 #include <QFileInfo>
 #include <QSqlDatabase>
+#include <QSqlQuery>
 #include <QtConcurrent/QtConcurrentRun>
 
 #include "core/PkgInfo.h"
@@ -39,6 +40,8 @@ void LibraryScanner::scan(const QStringList &roots)
                 QStringLiteral("QSQLITE"), connectionName);
             db.setDatabaseName(Database::instance().databasePath());
             if (db.open()) {
+                QSqlQuery pragma(db);
+                pragma.exec(QStringLiteral("PRAGMA busy_timeout=5000"));
                 int found = 0;
                 int parsed = 0;
                 const auto processFile = [&](const QFileInfo &fi) {

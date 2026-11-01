@@ -45,9 +45,9 @@ QVariant LibraryModel::data(const QModelIndex &index, int role) const
     case FamilyKeyRole:
         return item.familyKey;
     case IconUrlRole:
-        return item.row.icon.isEmpty()
-            ? QString()
-            : QStringLiteral("image://pkgicon/%1").arg(item.row.id);
+        return item.row.hasIcon
+            ? QStringLiteral("image://pkgicon/%1").arg(item.row.id)
+            : QString();
     case PathRole:
         return item.row.path;
     case SelectedRole:
