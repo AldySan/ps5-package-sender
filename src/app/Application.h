@@ -8,6 +8,7 @@
 #include "core/Discovery.h"
 #include "core/LibraryModel.h"
 #include "core/LibraryScanner.h"
+#include "core/RangeFileServer.h"
 #include "core/ReceiverClient.h"
 
 namespace ps5 {
@@ -33,6 +34,9 @@ class Application : public QObject {
     Q_PROPERTY(QString receiverBuild READ receiverBuild NOTIFY receiverOnlineChanged)
     Q_PROPERTY(QString freeSpaceText READ freeSpaceText NOTIFY receiverOnlineChanged)
     Q_PROPERTY(bool discovering READ discovering NOTIFY discoveringChanged)
+    Q_PROPERTY(bool shareEnabled READ shareEnabled WRITE setShareEnabled
+                   NOTIFY shareEnabledChanged)
+    Q_PROPERTY(QString catalogUrl READ catalogUrl NOTIFY shareEnabledChanged)
     Q_PROPERTY(QString discoveryStatus READ discoveryStatus NOTIFY discoveringChanged)
     Q_PROPERTY(QVariantList consoles READ consoles NOTIFY consolesChanged)
 
@@ -63,6 +67,10 @@ public:
     QString discoveryStatus() const { return m_discoveryStatus; }
     QVariantList consoles() const { return m_consoles; }
 
+    bool shareEnabled() const;
+    void setShareEnabled(bool on);
+    QString catalogUrl() const;
+
     Q_INVOKABLE void addFolder(const QUrl &folder);
     Q_INVOKABLE void addDroppedUrls(const QList<QUrl> &urls);
     Q_INVOKABLE void rescanAll();
@@ -72,6 +80,7 @@ public:
     Q_INVOKABLE void testConnection();
     Q_INVOKABLE void useConsole(const QString &ip);
     Q_INVOKABLE void refreshPcAddresses();
+    Q_INVOKABLE void copyToClipboard(const QString &text);
 
 signals:
     void scanningChanged();
@@ -85,6 +94,7 @@ signals:
     void receiverOnlineChanged();
     void discoveringChanged();
     void consolesChanged();
+    void shareEnabledChanged();
 
 private:
     void startScan(const QStringList &roots, bool rememberRoots);
@@ -112,6 +122,9 @@ private:
     bool m_discovering = false;
     QString m_discoveryStatus;
     QVariantList m_consoles;
+
+    bool m_shareEnabled = false;
+    RangeFileServer *m_server = nullptr;
 
     ReceiverClient *m_receiver = nullptr;
     QTimer m_pollTimer;

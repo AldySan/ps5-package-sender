@@ -27,6 +27,8 @@ add_library(ps5core STATIC
     src/core/ReceiverClient.cpp
     src/core/Discovery.h
     src/core/Discovery.cpp
+    src/core/RangeFileServer.h
+    src/core/RangeFileServer.cpp
     src/core/LibraryScanner.h
     src/core/LibraryScanner.cpp
     src/core/LibraryModel.h
@@ -104,4 +106,7 @@ if(BUILD_TESTS)
     add_executable(receivertest tests/receivertest.cpp)
     target_link_libraries(receivertest PRIVATE ps5core)
     add_test(NAME receivertest COMMAND receivertest)
+    add_executable(fileservertest tests/fileservertest.cpp)
+    target_link_libraries(fileservertest PRIVATE ps5core)
+    add_test(NAME fileservertest COMMAND fileservertest)
 endif()

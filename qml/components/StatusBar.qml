@@ -47,6 +47,29 @@ ToolBar {
             font.pixelSize: 12
         }
 
+        Label {
+            visible: app.shareEnabled && app.catalogUrl.length > 0
+            text: app.catalogUrl
+            color: Theme.accent
+            font.pixelSize: 11
+            font.family: Theme.mono
+
+            MouseArea {
+                anchors.fill: parent
+                cursorShape: Qt.PointingHandCursor
+                onClicked: app.copyToClipboard(app.catalogUrl)
+            }
+        }
+
+        Button {
+            checkable: true
+            text: checked ? qsTr("Share on") : qsTr("Share to console")
+            checked: app.shareEnabled
+            onToggled: app.shareEnabled = checked
+            ToolTip.visible: hovered
+            ToolTip.text: qsTr("Publish the library so the console browser can install on its own")
+        }
+
         Item { Layout.fillWidth: true }
 
         ComboBox {
