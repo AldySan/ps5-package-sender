@@ -31,12 +31,6 @@ Page {
 
             Item { Layout.fillWidth: true }
 
-            Label {
-                text: qsTr("Destination") + ": " + app.destination
-                color: Theme.textMuted
-                font.pixelSize: 12
-                font.family: Theme.mono
-            }
 
             Button {
                 text: qsTr("Retry failed")
@@ -50,6 +44,10 @@ Page {
                     && app.queue.model.activeCount < app.queue.model.count
                 onClicked: app.queue.clearFinished()
             }
+        }
+
+        DestinationPicker {
+            Layout.fillWidth: true
         }
 
         ListView {

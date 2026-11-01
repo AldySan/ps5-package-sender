@@ -10,6 +10,7 @@
 #include <QUrl>
 
 #include "core/PkgInfo.h"
+#include "core/ScanPaths.h"
 #include "db/Database.h"
 #include "util/Format.h"
 
@@ -104,6 +105,7 @@ Application::Application(QObject *parent)
     connect(m_queue, &TransferQueue::notify, this, &Application::notify);
     connect(m_queue, &TransferQueue::queueChanged, this, [this] {
         m_historyRows = buildHistoryRows();
+    refreshScanPaths();
         emit historyChanged();
     });
     m_historyRows = buildHistoryRows();
@@ -411,6 +413,40 @@ void Application::startScan(const QStringList &roots, bool rememberRoots)
     emit scanningChanged();
     emit scanStatusChanged();
     m_scanner->scan(roots);
+}
+
+QStringList Application::refreshScanPaths()
+{
+    m_scanPaths = ScanPaths::builtinPaths()
+        + Database::instance().customScanPaths();
+    emit scanPathsChanged();
+    return m_scanPaths;
+}
+
+bool Application::destinationIsCustom() const
+{
+    return !ScanPaths::builtinPaths().contains(m_queue ? m_queue->destination()
+                                                       : QString());
+}
+
+bool Application::addCustomScanPath(const QString &path)
+{
+    const QString normalized = ScanPaths::normalize(path);
+    if (!ScanPaths::isAbsoluteRemotePath(normalized))
+        return false;
+    Database::instance().addCustomScanPath(normalized);
+    refreshScanPaths();
+    setDestination(normalized);
+    emit notify(tr("Added %1 to scan paths").arg(normalized));
+    return true;
+}
+
+void Application::removeCustomScanPath(const QString &path)
+{
+    Database::instance().removeCustomScanPath(path);
+    refreshScanPaths();
+    if (destination() == path)
+        setDestination(QStringLiteral("/data/homebrew"));
 }
 
 void Application::reloadHistory()

@@ -68,6 +68,8 @@ bool Database::open()
                           "digest TEXT, icon BLOB)"));
     q.exec(QStringLiteral("CREATE TABLE IF NOT EXISTS scanned_roots ("
                           "path TEXT PRIMARY KEY)"));
+    q.exec(QStringLiteral("CREATE TABLE IF NOT EXISTS custom_scan_paths ("
+                          "path TEXT PRIMARY KEY)"));
     q.exec(QStringLiteral("CREATE TABLE IF NOT EXISTS history ("
                           "id INTEGER PRIMARY KEY AUTOINCREMENT,"
                           "started INTEGER, finished INTEGER, kind TEXT, name TEXT,"
@@ -208,6 +210,32 @@ QStringList Database::scannedRoots()
     QStringList out;
     QSqlQuery q;
     q.exec(QStringLiteral("SELECT path FROM scanned_roots"));
+    while (q.next())
+        out.append(q.value(0).toString());
+    return out;
+}
+
+void Database::addCustomScanPath(const QString &path)
+{
+    QSqlQuery q;
+    q.prepare(QStringLiteral("INSERT OR IGNORE INTO custom_scan_paths (path) VALUES (?)"));
+    q.addBindValue(path);
+    q.exec();
+}
+
+void Database::removeCustomScanPath(const QString &path)
+{
+    QSqlQuery q;
+    q.prepare(QStringLiteral("DELETE FROM custom_scan_paths WHERE path = ?"));
+    q.addBindValue(path);
+    q.exec();
+}
+
+QStringList Database::customScanPaths()
+{
+    QStringList out;
+    QSqlQuery q;
+    q.exec(QStringLiteral("SELECT path FROM custom_scan_paths ORDER BY path"));
     while (q.next())
         out.append(q.value(0).toString());
     return out;
