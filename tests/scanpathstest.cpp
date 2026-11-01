@@ -1,4 +1,5 @@
 #include <QCoreApplication>
+#include <QTemporaryDir>
 
 #include "../src/core/ScanPaths.h"
 #include "../src/db/Database.h"
@@ -18,7 +19,8 @@ static int failures = 0;
 int main(int argc, char *argv[])
 {
     QCoreApplication app(argc, argv);
-    qputenv("PS5PKGSENDER_DATA_DIR", "/tmp/ps5pkg-scanpaths-test-data");
+    QTemporaryDir dataDir;
+    qputenv("PS5PKGSENDER_DATA_DIR", dataDir.path().toUtf8());
 
     CHECK(ps5::Database::instance().open());
 

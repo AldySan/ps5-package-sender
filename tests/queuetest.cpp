@@ -246,7 +246,8 @@ private:
 int main(int argc, char *argv[])
 {
     QCoreApplication app(argc, argv);
-    qputenv("PS5PKGSENDER_DATA_DIR", "/tmp/ps5pkg-queue-test-data");
+    QTemporaryDir dataDir;
+    qputenv("PS5PKGSENDER_DATA_DIR", dataDir.path().toUtf8());
 
     CHECK(ps5::Database::instance().open());
 
