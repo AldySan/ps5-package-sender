@@ -2,6 +2,7 @@
 #include <QQmlApplicationEngine>
 #include <QQmlContext>
 #include <QQuickStyle>
+#include <QThreadPool>
 #include <QUrl>
 
 #include "app/Application.h"
@@ -23,5 +24,7 @@ int main(int argc, char *argv[])
     engine.loadFromModule("PS5PackageSender", "Main");
     if (engine.rootObjects().isEmpty())
         return 1;
-    return app.exec();
+    const int rc = app.exec();
+    QThreadPool::globalInstance()->waitForDone();
+    return rc;
 }
