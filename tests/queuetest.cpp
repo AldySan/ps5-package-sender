@@ -272,6 +272,10 @@ int main(int argc, char *argv[])
     pollTimer.start();
 
     {
+        QTemporaryDir sourceDir;
+        const QString pkgPath = sourceDir.filePath("ps5pkg-queue-test-file");
+        const QString dumpPath = sourceDir.filePath("ps5pkg-queue-test-dump.exfat");
+
         QByteArray payload(1200000, 0);
         for (int i = 0; i < payload.size(); i++)
             payload[i] = char((i * 7) % 251);
@@ -289,14 +293,15 @@ int main(int argc, char *argv[])
         imageRow.size = payload.size();
 
         // --- install flow ---
-        server.registerFile("q1", "/tmp/ps5pkg-queue-test-file");
+        server.registerFile("q1", pkgPath);
         {
-            QFile f("/tmp/ps5pkg-queue-test-file");
+            QFile f(pkgPath);
             f.open(QIODevice::WriteOnly);
+            CHECK(f.isOpen());
             f.write(payload);
             f.close();
         }
-        row.path = "/tmp/ps5pkg-queue-test-file";
+        row.path = pkgPath;
         queue.enqueue({row}, false);
         CHECK(waitFor([&] {
             return queue.model()->count() == 1
@@ -307,12 +312,13 @@ int main(int argc, char *argv[])
 
         // --- copy flow ---
         {
-            QFile f("/tmp/ps5pkg-queue-test-dump.exfat");
+            QFile f(dumpPath);
             f.open(QIODevice::WriteOnly);
+            CHECK(f.isOpen());
             f.write(payload);
             f.close();
         }
-        imageRow.path = "/tmp/ps5pkg-queue-test-dump.exfat";
+        imageRow.path = dumpPath;
         queue.enqueue({imageRow}, true);
         CHECK(waitFor([&] {
             return queue.model()->count() == 2
@@ -359,8 +365,6 @@ int main(int argc, char *argv[])
         }
     }
 
-    QFile::remove("/tmp/ps5pkg-queue-test-file");
-    QFile::remove("/tmp/ps5pkg-queue-test-dump.exfat");
     if (failures == 0) {
         std::fprintf(stderr, "transfer queue tests passed\n");
         return 0;
