@@ -134,6 +134,69 @@ Page {
             }
 
             Label {
+                text: qsTr("Updates")
+                color: Theme.text
+                font.pixelSize: 15
+                font.bold: true
+            }
+
+            RowLayout {
+                Layout.fillWidth: true
+
+                ColumnLayout {
+                    spacing: 2
+                    Layout.fillWidth: true
+
+                    Label {
+                        text: qsTr("Auto check update")
+                        color: Theme.text
+                        font.pixelSize: 13
+                    }
+
+                    Label {
+                        text: qsTr("Look for a newer release when the app starts and show a notice when one is found.")
+                        color: Theme.textMuted
+                        font.pixelSize: 11
+                        wrapMode: Text.WordWrap
+                        Layout.fillWidth: true
+                    }
+                }
+
+                Switch {
+                    checked: app.autoCheckUpdates
+                    onToggled: app.autoCheckUpdates = checked
+                }
+            }
+
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 8
+
+                Button {
+                    text: app.checkingUpdate ? qsTr("Checking…") : qsTr("Check for updates")
+                    enabled: !app.checkingUpdate
+                    onClicked: app.checkForUpdates()
+                }
+
+                Button {
+                    visible: app.updateAvailable
+                    highlighted: true
+                    text: qsTr("Download %1").arg(app.latestVersion)
+                    onClicked: app.openReleasePage()
+                }
+
+                Item { Layout.fillWidth: true }
+
+                Label {
+                    visible: !app.checkingUpdate && app.latestVersion.length > 0
+                             && !app.updateAvailable
+                    text: qsTr("Up to date — %1 is the latest release").arg(app.latestVersion)
+                    color: Theme.textMuted
+                    font.pixelSize: 11
+                }
+            }
+
+            Label {
                 text: qsTr("About")
                 color: Theme.text
                 font.pixelSize: 15

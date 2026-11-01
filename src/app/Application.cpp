@@ -3,6 +3,7 @@
 #include <QCoreApplication>
 #include <QDir>
 #include <QClipboard>
+#include <QDesktopServices>
 #include <QGuiApplication>
 
 #include <memory>
@@ -35,6 +36,11 @@ Application::Application(QObject *parent)
     const bool dbOk = Database::instance().open();
     m_theme = Database::instance().setting(QStringLiteral("theme"),
                                             QStringLiteral("dark"));
+    m_autoCheckUpdates = Database::instance().setting(
+        QStringLiteral("autoCheckUpdates"), QStringLiteral("1"))
+        != QStringLiteral("0");
+
+    m_updater = new UpdateChecker(m_version, this);
 
     m_library = new LibraryModel(this);
     m_library->reload();
@@ -125,6 +131,11 @@ Application::Application(QObject *parent)
 
     if (!Database::instance().scannedRoots().isEmpty())
         startScan(Database::instance().scannedRoots());
+
+    QTimer::singleShot(1500, this, [this] {
+        if (m_autoCheckUpdates)
+            runUpdateCheck(false);
+    });
 }
 
 QString Application::lastPickFolder() const
@@ -197,6 +208,54 @@ void Application::setShareEnabled(bool on)
     emit shareEnabledChanged();
     if (on)
         emit notify(tr("Catalog shared at %1").arg(catalogUrl()));
+}
+
+void Application::setAutoCheckUpdates(bool on)
+{
+    if (m_autoCheckUpdates == on)
+        return;
+    m_autoCheckUpdates = on;
+    Database::instance().setSetting(QStringLiteral("autoCheckUpdates"),
+                                     on ? QStringLiteral("1") : QStringLiteral("0"));
+    emit autoCheckUpdatesChanged();
+}
+
+void Application::checkForUpdates()
+{
+    runUpdateCheck(true);
+}
+
+void Application::runUpdateCheck(bool manual)
+{
+    if (m_checkingUpdate || !m_updater)
+        return;
+    m_checkingUpdate = true;
+    emit updateStatusChanged();
+    m_updater->check([this, manual](const UpdateChecker::Result &result) {
+        m_checkingUpdate = false;
+        m_updateAvailable = result.available;
+        m_latestVersion = result.latestVersion;
+        m_releaseUrl = result.releaseUrl;
+        emit updateStatusChanged();
+        if (!result.error.isEmpty()) {
+            if (manual)
+                emit notify(tr("Update check failed: %1").arg(result.error));
+            return;
+        }
+        if (result.available)
+            emit notify(tr("Version %1 is available — open Settings to download it")
+                            .arg(result.latestVersion));
+        else if (manual)
+            emit notify(tr("You are on the latest version (%1)").arg(m_version));
+    });
+}
+
+void Application::openReleasePage()
+{
+    const QString url = m_releaseUrl.isEmpty()
+        ? QStringLiteral("https://github.com/AldySan/ps5-package-sender/releases/latest")
+        : m_releaseUrl;
+    QDesktopServices::openUrl(QUrl(url));
 }
 
 void Application::saveIpSettings()
