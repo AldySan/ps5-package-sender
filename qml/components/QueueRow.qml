@@ -56,7 +56,7 @@ Rectangle {
                         width: kindLabel.implicitWidth + 10
                         height: kindLabel.implicitHeight + 4
                         radius: 4
-                        color: model.isCopy ? "#f5b83d22" : Theme.accentSoft
+                        color: model.isCopy ? "#22f5b83d" : Theme.accentSoft
 
                         Label {
                             id: kindLabel
@@ -106,7 +106,7 @@ Rectangle {
                 RowLayout {
                     spacing: 4
 
-                    Button {
+                    AppButton {
                         visible: model.canPause
                         text: qsTr("⏸")
                         flat: true
@@ -116,7 +116,7 @@ Rectangle {
                         onClicked: app.queue.pauseRow(model.id)
                     }
 
-                    Button {
+                    AppButton {
                         visible: model.state === 5
                         text: qsTr("▶")
                         flat: true
@@ -126,7 +126,7 @@ Rectangle {
                         onClicked: app.queue.resumeRow(model.id)
                     }
 
-                    Button {
+                    AppButton {
                         visible: model.canRetry
                         text: qsTr("↻")
                         flat: true
@@ -136,7 +136,7 @@ Rectangle {
                         onClicked: app.queue.retryRow(model.id)
                     }
 
-                    Button {
+                    AppButton {
                         visible: model.canCancel
                         text: qsTr("✕")
                         flat: true
@@ -146,7 +146,7 @@ Rectangle {
                         onClicked: app.queue.cancelRow(model.id)
                     }
 
-                    Button {
+                    AppButton {
                         text: qsTr("↑")
                         flat: true
                         implicitWidth: 30
@@ -154,7 +154,7 @@ Rectangle {
                         onClicked: app.queue.moveRow(model.id, -1)
                     }
 
-                    Button {
+                    AppButton {
                         text: qsTr("↓")
                         flat: true
                         implicitWidth: 30

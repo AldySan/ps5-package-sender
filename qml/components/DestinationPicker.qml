@@ -19,7 +19,7 @@ ColumnLayout {
     RowLayout {
         spacing: 8
 
-        ComboBox {
+        AppComboBox {
             id: pathBox
             Layout.fillWidth: true
             model: app.scanPaths
@@ -31,15 +31,21 @@ ColumnLayout {
             onActivated: index => app.destination = app.scanPaths[index]
 
             delegate: ItemDelegate {
+                id: pathEntry
                 required property string modelData
                 required property int index
-                width: pathBox.width
+                width: ListView.view.width
                 height: 34
                 highlighted: modelData === app.destination
 
+                background: Rectangle {
+                    radius: Theme.controlRadius - 2
+                    color: pathEntry.highlighted ? Theme.accentSoft : "transparent"
+                }
+
                 contentItem: Label {
-                    text: modelData
-                    color: modelData === app.destination ? Theme.accent : Theme.text
+                    text: pathEntry.modelData
+                    color: pathEntry.highlighted ? Theme.accent : Theme.text
                     font.pixelSize: 12
                     font.family: Theme.mono
                     elide: Text.ElideMiddle
@@ -48,12 +54,12 @@ ColumnLayout {
             }
         }
 
-        Button {
+        AppButton {
             text: qsTr("Add path…")
             onClicked: customDialog.open()
         }
 
-        Button {
+        AppButton {
             visible: app.destinationIsCustom
             text: qsTr("Remove")
             onClicked: app.removeCustomScanPath(app.destination)
@@ -89,7 +95,7 @@ ColumnLayout {
                 Layout.fillWidth: true
             }
 
-            TextField {
+            AppTextField {
                 id: customField
                 placeholderText: "/mnt/usb0/homebrew"
                 selectByMouse: true

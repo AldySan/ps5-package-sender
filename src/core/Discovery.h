@@ -5,6 +5,8 @@
 #include <QString>
 #include <QStringList>
 
+#include <atomic>
+
 namespace ps5 {
 
 struct LanNetwork {
@@ -34,13 +36,16 @@ public:
     static QString bestPcIpFor(const QList<LanNetwork> &nets, const QString &psIp);
 
     void findConsoles();
+    void cancel();
 
 signals:
     void progressMessage(const QString &message);
     void consolesFound(const QStringList &ips);
+    void cancelled();
 
 private:
     bool m_running = false;
+    std::atomic_bool m_cancelled = false;
 };
 
 }

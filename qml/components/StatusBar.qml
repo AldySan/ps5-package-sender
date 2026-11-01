@@ -61,7 +61,7 @@ ToolBar {
             }
         }
 
-        Button {
+        AppButton {
             checkable: true
             text: checked ? qsTr("Share on") : qsTr("Share to console")
             checked: app.shareEnabled
@@ -72,17 +72,23 @@ ToolBar {
 
         Item { Layout.fillWidth: true }
 
-        ComboBox {
+        AppComboBox {
             id: pcBox
-            implicitWidth: 150
-            model: app.pcAddresses
+            implicitWidth: 200
+            model: app.pcAddressLabels
             visible: app.pcAddresses.length > 0
-            currentIndex: app.pcIp ? Math.max(0, app.pcAddresses.indexOf(app.pcIp)) : -1
-            displayText: qsTr("PC ") + (app.pcIp || qsTr("IP"))
+            currentIndex: app.pcIp ? app.pcAddresses.indexOf(app.pcIp) : -1
+            displayText: {
+                if (!app.pcIp)
+                    return qsTr("PC ") + qsTr("IP")
+                const idx = app.pcAddresses.indexOf(app.pcIp)
+                return idx >= 0 ? qsTr("PC ") + app.pcAddressLabels[idx]
+                                : qsTr("PC ") + app.pcIp
+            }
             onActivated: index => app.pcIp = app.pcAddresses[index]
         }
 
-        TextField {
+        AppTextField {
             id: consoleIpField
             implicitWidth: 130
             placeholderText: qsTr("console IP")
@@ -92,12 +98,12 @@ ToolBar {
             font.pixelSize: 12
         }
 
-        Button {
+        AppButton {
             text: qsTr("Test")
             onClicked: app.testConnection()
         }
 
-        Button {
+        AppButton {
             text: app.discovering ? qsTr("Detecting…") : qsTr("Detect")
             enabled: !app.discovering
             onClicked: consolePopup.open()
@@ -110,8 +116,9 @@ ToolBar {
         width: 360
         height: 420
         padding: 10
-        modal: false
-        closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
+        modal: true
+        closePolicy: app.discovering ? Popup.NoAutoClose
+                                      : (Popup.CloseOnEscape | Popup.CloseOnPressOutside)
 
         onOpened: app.detectConsoles()
 
@@ -120,6 +127,10 @@ ToolBar {
             radius: Theme.radius
             border.width: 1
             border.color: Theme.border
+        }
+
+        Overlay.modal: Rectangle {
+            color: Theme.dark ? "#000000b0" : "#00000059"
         }
 
         contentItem: ColumnLayout {
@@ -136,6 +147,13 @@ ToolBar {
                 visible: app.discovering
                 running: app.discovering
                 Layout.alignment: Qt.AlignHCenter
+            }
+
+            AppButton {
+                visible: app.discovering
+                text: qsTr("Cancel")
+                Layout.alignment: Qt.AlignHCenter
+                onClicked: app.cancelDiscovery()
             }
 
             ListView {

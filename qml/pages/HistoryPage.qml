@@ -26,7 +26,7 @@ Page {
 
             Item { Layout.fillWidth: true }
 
-            Button {
+            AppButton {
                 text: qsTr("Clear history")
                 enabled: app.historyRows.length > 0
                 onClicked: app.clearHistory()
@@ -57,7 +57,7 @@ Page {
                         width: kindLabel.implicitWidth + 10
                         height: kindLabel.implicitHeight + 4
                         radius: 4
-                        color: modelData.kind === "copy" ? "#f5b83d22" : Theme.accentSoft
+                        color: modelData.kind === "copy" ? "#22f5b83d" : Theme.accentSoft
 
                         Label {
                             id: kindLabel

@@ -32,13 +32,13 @@ Page {
             Item { Layout.fillWidth: true }
 
 
-            Button {
+            AppButton {
                 text: qsTr("Retry failed")
                 enabled: app.queue && app.queue.model.failedCount > 0
                 onClicked: app.queue.retryFailed()
             }
 
-            Button {
+            AppButton {
                 text: qsTr("Clear finished")
                 enabled: app.queue && app.queue.model.count > 0
                     && app.queue.model.activeCount < app.queue.model.count
