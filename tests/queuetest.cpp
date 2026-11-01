@@ -351,7 +351,12 @@ int main(int argc, char *argv[])
         CHECK(console.installCalls >= 3);
 
         // --- history recorded ---
-        CHECK(ps5::Database::instance().historyRows(50).size() >= 4);
+        const QList<ps5::HistoryRow> history = ps5::Database::instance().historyRows(50);
+        CHECK(history.size() >= 4);
+        for (const ps5::HistoryRow &entry : history) {
+            CHECK(entry.started > 0);
+            CHECK(entry.finished >= entry.started);
+        }
     }
 
     QFile::remove("/tmp/ps5pkg-queue-test-file");

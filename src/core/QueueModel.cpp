@@ -44,9 +44,6 @@ QVariant QueueModel::data(const QModelIndex &index, int role) const
     }
     case SizeTextRole:
         return formatSize(item.size);
-    case SpeedTextRole:
-    case EtaTextRole:
-        return QString();
     case IconUrlRole:
         return item.hasIcon
             ? QStringLiteral("image://pkgicon/%1").arg(item.libraryId)
@@ -79,8 +76,6 @@ QHash<int, QByteArray> QueueModel::roleNames() const
         {MessageRole, "message"},
         {PercentRole, "percent"},
         {SizeTextRole, "sizeText"},
-        {SpeedTextRole, "speedText"},
-        {EtaTextRole, "etaText"},
         {IconUrlRole, "iconUrl"},
         {CanPauseRole, "canPause"},
         {CanCancelRole, "canCancel"},

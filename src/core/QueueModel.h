@@ -35,6 +35,7 @@ struct QueueItem {
     TransferState state = TransferState::Queued;
     QString message;
     qint64 sent = 0;
+    qint64 started = 0;
     QString serverId;
     bool resumeOnRetry = false;
     bool pullWasActive = false;
@@ -59,8 +60,6 @@ public:
         MessageRole,
         PercentRole,
         SizeTextRole,
-        SpeedTextRole,
-        EtaTextRole,
         IconUrlRole,
         CanPauseRole,
         CanCancelRole,
