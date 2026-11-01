@@ -22,10 +22,17 @@ qt_standard_project_setup(REQUIRES 6.5)
 
 add_library(ps5core STATIC
     src/core/PkgInfo.h
-    src/core/PkgInfo.cpp)
+    src/core/PkgInfo.cpp
+    src/core/LibraryScanner.h
+    src/core/LibraryScanner.cpp
+    src/core/LibraryModel.h
+    src/core/LibraryModel.cpp
+    src/db/Database.h
+    src/db/Database.cpp
+    src/util/Format.h)
 
 target_include_directories(ps5core PUBLIC src)
-target_link_libraries(ps5core PUBLIC Qt6::Core)
+target_link_libraries(ps5core PUBLIC Qt6::Core Qt6::Sql Qt6::Concurrent)
 
 qt_add_executable(ps5-package-sender
     src/main.cpp)
@@ -52,9 +59,13 @@ qt_add_qml_module(ps5-package-sender
     SOURCES
         src/app/Application.h
         src/app/Application.cpp
+        src/app/IconProvider.h
+        src/app/IconProvider.cpp
     QML_FILES
         qml/Theme.qml
         qml/Main.qml
+        qml/components/GameCard.qml
+        qml/components/Toast.qml
         qml/pages/LibraryPage.qml
         qml/pages/QueuePage.qml
         qml/pages/HistoryPage.qml
@@ -79,4 +90,10 @@ if(BUILD_TESTS)
     add_executable(pkgparsertest tests/pkgparsertest.cpp)
     target_link_libraries(pkgparsertest PRIVATE ps5core)
     add_test(NAME pkgparsertest COMMAND pkgparsertest)
+endif()
+
+if(BUILD_TESTS)
+    add_executable(librarytest tests/librarytest.cpp)
+    target_link_libraries(librarytest PRIVATE ps5core)
+    add_test(NAME librarytest COMMAND librarytest)
 endif()

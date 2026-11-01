@@ -78,4 +78,40 @@ ApplicationWindow {
         HistoryPage {}
         SettingsPage {}
     }
+
+    DropArea {
+        anchors.fill: parent
+        onDropped: drop => {
+            const urls = []
+            for (let i = 0; i < drop.urls.length; i++)
+                urls.push(drop.urls[i])
+            app.addDroppedUrls(urls)
+            pages.currentIndex = 0
+        }
+        Rectangle {
+            anchors.fill: parent
+            color: Theme.accentSoft
+            border.width: 2
+            border.color: Theme.accent
+            radius: Theme.radius
+            visible: parent.containsDrag
+            Label {
+                anchors.centerIn: parent
+                text: qsTr("Drop PKG files or folders")
+                color: Theme.accent
+                font.pixelSize: 16
+            }
+        }
+    }
+
+    Toast {
+        id: toast
+    }
+
+    Connections {
+        target: app
+        function onNotify(message) {
+            toast.show(message)
+        }
+    }
 }

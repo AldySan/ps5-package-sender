@@ -5,6 +5,7 @@
 #include <QUrl>
 
 #include "app/Application.h"
+#include "app/IconProvider.h"
 
 int main(int argc, char *argv[])
 {
@@ -18,6 +19,7 @@ int main(int argc, char *argv[])
     ps5::Application controller;
     QQmlApplicationEngine engine;
     engine.rootContext()->setContextProperty("app", &controller);
+    engine.addImageProvider(QStringLiteral("pkgicon"), new ps5::IconProvider);
     engine.loadFromModule("PS5PackageSender", "Main");
     if (engine.rootObjects().isEmpty())
         return 1;
