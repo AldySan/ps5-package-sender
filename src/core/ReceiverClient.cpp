@@ -86,6 +86,8 @@ QString ReceiverClient::jsonEscape(const QString &s)
             out += QStringLiteral("\\\"");
         else if (c == QLatin1Char('\r') || c == QLatin1Char('\n'))
             out += QLatin1Char(' ');
+        else if (c.unicode() < 0x20)
+            out += QStringLiteral("\\u%1").arg(c.unicode(), 4, 16, QLatin1Char('0'));
         else
             out += c;
     }

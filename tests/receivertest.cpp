@@ -1,5 +1,7 @@
 #include <QCoreApplication>
 #include <QEventLoop>
+#include <QJsonDocument>
+#include <QJsonObject>
 #include <QTcpServer>
 #include <QTcpSocket>
 #include <QTimer>
@@ -182,6 +184,26 @@ int main(int argc, char *argv[])
         CHECK(reply.contains("success"));
         CHECK(mock.lastBody.contains("\"packages\":[\"http://192.168.1.2:9898/pkg/1\"]"));
         CHECK(mock.lastBody.contains("\"name\":\"My Game\""));
+    }
+
+    {
+        bool ok = false;
+        const QString weird = QStringLiteral("Tab\tTitle \u0001");
+        waitCallback([&](auto done) {
+            client.install("http://192.168.1.2:9898/pkg/9", weird, QString(),
+                           [&](bool o, const QString &) {
+                ok = o;
+                done();
+            });
+        });
+        CHECK(ok);
+        // the wire payload must be valid JSON: no raw control characters,
+        // and the escaped form must round-trip to the original title
+        CHECK(!mock.lastBody.contains(QLatin1Char('\t')));
+        CHECK(!mock.lastBody.contains(QChar(0x01)));
+        const QJsonDocument doc = QJsonDocument::fromJson(mock.lastBody.toUtf8());
+        CHECK(doc.isObject());
+        CHECK(doc.object().value(QStringLiteral("name")).toString() == weird);
     }
 
     {
