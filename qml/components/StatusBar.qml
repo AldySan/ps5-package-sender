@@ -136,11 +136,28 @@ ToolBar {
         contentItem: ColumnLayout {
             spacing: 8
 
-            Label {
-                text: app.discovering ? app.discoveryStatus : qsTr("Consoles")
-                color: Theme.textMuted
-                font.pixelSize: 12
+            RowLayout {
                 Layout.fillWidth: true
+
+                Label {
+                    text: app.discovering ? app.discoveryStatus : qsTr("Consoles")
+                    color: Theme.textMuted
+                    font.pixelSize: 12
+                    elide: Text.ElideRight
+                    Layout.fillWidth: true
+                }
+
+                AppButton {
+                    flat: true
+                    implicitWidth: 30
+                    font.pixelSize: 12
+                    text: qsTr("✕")
+                    onClicked: {
+                        if (app.discovering)
+                            app.cancelDiscovery()
+                        consolePopup.close()
+                    }
+                }
             }
 
             BusyIndicator {

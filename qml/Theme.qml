@@ -18,9 +18,10 @@ QtObject {
     readonly property color warn: dark ? "#f5b83d" : "#b97d10"
     readonly property color error: dark ? "#f0566a" : "#d23649"
     readonly property color chip: dark ? "#2b2e38" : "#e4e7ec"
-    readonly property color toolTipBase: dark ? "#262932" : "#33373f"
-    readonly property color toolTipText: dark ? "#e8eaf0" : "#f0f2f6"
-    readonly property color toast: dark ? "#262932" : "#20232a"
+    readonly property color toolTipBase: dark ? "#262932" : "#d5d8df"
+    readonly property color toolTipText: dark ? "#e8eaf0" : "#1d2129"
+    readonly property color toast: dark ? "#262932" : "#ffffff"
+    readonly property color link: dark ? accent : Qt.darker(accent, 1.4)
 
     readonly property int radius: 8
     readonly property int controlRadius: 6

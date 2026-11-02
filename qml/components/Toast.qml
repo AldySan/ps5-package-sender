@@ -58,7 +58,7 @@ Rectangle {
         anchors.fill: parent
         anchors.margins: 10
         text: root.message
-        color: Theme.toolTipText
+        color: Theme.text
         font.pixelSize: 12
         wrapMode: Text.WordWrap
     }

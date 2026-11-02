@@ -110,7 +110,7 @@ void TransferQueue::startInstall(QueueItem &item)
 
     const QString pkgUrl = m_server->pkgUrl(m_pcIp, item.serverId);
     QString iconUrl;
-    if (!Database::instance().libraryIcon(item.libraryId).isEmpty())
+    if (item.hasIcon)
         iconUrl = m_server->iconUrl(m_pcIp, item.serverId);
 
     m_receiver->install(pkgUrl, item.name, iconUrl,
