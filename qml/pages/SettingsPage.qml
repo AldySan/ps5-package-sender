@@ -277,9 +277,9 @@ Page {
                     + "are open source:<br>"
                     + "• this app: <a href=\"https://github.com/AldySan/ps5-package-sender\">ps5-package-sender</a><br>"
                     + "• the console receiver: <a href=\"https://github.com/AldySan/ps5-package-receiver-elf\">ps5-package-receiver-elf</a>")
-                textFormat: Text.RichText
+                textFormat: Text.StyledText
                 color: Theme.textMuted
-                linkColor: Theme.accent
+                linkColor: Theme.link
                 font.pixelSize: 14
                 wrapMode: Text.WordWrap
                 onLinkActivated: link => app.openLink(link)
