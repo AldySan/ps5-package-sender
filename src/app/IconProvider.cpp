@@ -23,6 +23,8 @@ QByteArray readIcon(qlonglong id)
             QStringLiteral("QSQLITE"), connectionName);
         db.setDatabaseName(Database::instance().databasePath());
         if (db.open()) {
+            QSqlQuery pragma(db);
+            pragma.exec(QStringLiteral("PRAGMA busy_timeout=5000"));
             QSqlQuery q(db);
             q.prepare(QStringLiteral("SELECT icon FROM library WHERE id = ?"));
             q.addBindValue(id);

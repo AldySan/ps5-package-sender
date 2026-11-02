@@ -1,5 +1,7 @@
 #include <QCoreApplication>
 #include <QEventLoop>
+#include <QJsonDocument>
+#include <QJsonObject>
 #include <QTcpServer>
 #include <QTcpSocket>
 #include <QTimer>
@@ -85,10 +87,12 @@ private:
 template <typename F>
 void waitCallback(F &&startCallback, int timeoutMs = 5000)
 {
-    QEventLoop loop;
-    QTimer::singleShot(timeoutMs, &loop, &QEventLoop::quit);
-    startCallback([&loop]() { loop.quit(); });
-    loop.exec();
+    // The loop must outlive waitCallback(): a reply that lands after the
+    // timeout would otherwise call quit() on a destroyed stack object.
+    auto loop = std::make_shared<QEventLoop>();
+    QTimer::singleShot(timeoutMs, loop.get(), &QEventLoop::quit);
+    startCallback([loop]() { loop->quit(); });
+    loop->exec();
 }
 
 int main(int argc, char *argv[])
@@ -180,6 +184,26 @@ int main(int argc, char *argv[])
         CHECK(reply.contains("success"));
         CHECK(mock.lastBody.contains("\"packages\":[\"http://192.168.1.2:9898/pkg/1\"]"));
         CHECK(mock.lastBody.contains("\"name\":\"My Game\""));
+    }
+
+    {
+        bool ok = false;
+        const QString weird = QStringLiteral("Tab\tTitle \u0001");
+        waitCallback([&](auto done) {
+            client.install("http://192.168.1.2:9898/pkg/9", weird, QString(),
+                           [&](bool o, const QString &) {
+                ok = o;
+                done();
+            });
+        });
+        CHECK(ok);
+        // the wire payload must be valid JSON: no raw control characters,
+        // and the escaped form must round-trip to the original title
+        CHECK(!mock.lastBody.contains(QLatin1Char('\t')));
+        CHECK(!mock.lastBody.contains(QChar(0x01)));
+        const QJsonDocument doc = QJsonDocument::fromJson(mock.lastBody.toUtf8());
+        CHECK(doc.isObject());
+        CHECK(doc.object().value(QStringLiteral("name")).toString() == weird);
     }
 
     {
