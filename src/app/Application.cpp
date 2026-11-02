@@ -124,7 +124,7 @@ Application::Application(QObject *parent)
     m_queue->setDestination(Database::instance().setting(
         QStringLiteral("destination"), QStringLiteral("/data/homebrew")));
     connect(m_queue, &TransferQueue::notify, this, &Application::notify);
-    connect(m_queue, &TransferQueue::queueChanged, this, [this] {
+    connect(m_queue, &TransferQueue::historyChanged, this, [this] {
         m_historyRows = buildHistoryRows();
         emit historyChanged();
     });

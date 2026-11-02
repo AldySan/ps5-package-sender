@@ -335,6 +335,7 @@ void TransferQueue::writeHistory(const QueueItem &item, bool ok, const QString &
     row.ok = ok;
     row.message = message;
     Database::instance().addHistory(row);
+    emit historyChanged();
 }
 
 QString TransferQueue::remotePathFor(const QueueItem &item) const
