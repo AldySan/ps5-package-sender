@@ -11,6 +11,7 @@ Page {
     property bool hasSelection: app.libraryModel.selectedCount > 0
     property bool hasImageSelection: app.libraryModel.selectedImageCount > 0
     property bool hasPkgSelection: app.libraryModel.selectedPkgCount > 0
+    property string filter: "All"
 
     FolderDialog {
         id: folderDialog

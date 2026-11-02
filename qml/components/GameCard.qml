@@ -14,7 +14,8 @@ Rectangle {
 
     MouseArea {
         anchors.fill: parent
-        onClicked: check.toggle()
+        cursorShape: Qt.PointingHandCursor
+        onClicked: app.libraryModel.toggleSelected(model.id)
     }
 
     ColumnLayout {

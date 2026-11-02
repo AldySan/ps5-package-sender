@@ -1,4 +1,5 @@
 #include <QCoreApplication>
+#include <QElapsedTimer>
 #include <QEventLoop>
 #include <QFile>
 #include <QJsonDocument>
@@ -82,6 +83,7 @@ public:
     }
 
     int installCalls = 0;
+    bool delayNextInstall = false;
 
 private:
     void incomingConnection(qintptr handle) override
@@ -142,19 +144,28 @@ private:
         const QString url = body.value(QStringLiteral("packages"))
                                 .toArray().at(0).toString();
         const QString name = body.value(QStringLiteral("name")).toString();
-        if (name.contains(QLatin1String("FAILME")) && m_installFailures < 1) {
-            m_installFailures++;
-            replyJson(sock, "{\"status\":\"fail\"}");
-            return;
-        }
-        replyJson(sock, "{\"status\":\"success\"}");
+        const bool fail = name.contains(QLatin1String("FAILME")) && m_installFailures < 1;
+        const auto respond = [this, sock, fail, url]() {
+            if (fail) {
+                m_installFailures++;
+                replyJson(sock, "{\"status\":\"fail\"}");
+                return;
+            }
+            replyJson(sock, "{\"status\":\"success\"}");
 
-        m_active++;
-        m_busy = true;
-        download(url, [this](const QByteArray &) {
-            m_active--;
-            m_busy = m_active > 0;
-        });
+            m_active++;
+            m_busy = true;
+            download(url, [this](const QByteArray &) {
+                m_active--;
+                m_busy = m_active > 0;
+            });
+        };
+        if (delayNextInstall) {
+            delayNextInstall = false;
+            QTimer::singleShot(600, this, respond);
+        } else {
+            respond();
+        }
     }
 
     void handlePull(QTcpSocket *sock)
@@ -363,6 +374,22 @@ int main(int argc, char *argv[])
             CHECK(entry.started > 0);
             CHECK(entry.finished >= entry.started);
         }
+
+        // --- cancel during push stays cancelled when the reply lands late ---
+        ps5::LibraryRow cancelRow = row;
+        cancelRow.title = "Cancel Me";
+        console.delayNextInstall = true;
+        queue.enqueue({cancelRow}, false);
+        CHECK(waitFor([&] {
+            return queue.model()->count() == 5
+                && queue.model()->itemAt(4).state == ps5::TransferState::Pushing;
+        }, 5000));
+        queue.cancelRow(queue.model()->itemAt(4).id);
+        CHECK(queue.model()->itemAt(4).state == ps5::TransferState::Cancelled);
+        CHECK(waitFor([&] { return console.installCalls >= 4; }, 10000));
+        waitFor([&] { return false; }, 800);
+        CHECK(queue.model()->itemAt(4).state == ps5::TransferState::Cancelled);
+        CHECK(queue.model()->itemAt(4).message == "cancelled");
     }
 
     if (failures == 0) {
