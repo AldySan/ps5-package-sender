@@ -149,10 +149,14 @@ Page {
             model: app.libraryModel
             ScrollBar.vertical: ScrollBar {}
 
-            delegate: GameCard {
-                width: grid.cellWidth - 8
-                height: grid.cellHeight - 8
-                anchors.horizontalCenter: parent ? parent.horizontalCenter : undefined
+            delegate: Item {
+                width: grid.cellWidth
+                height: grid.cellHeight
+
+                GameCard {
+                    anchors.fill: parent
+                    anchors.margins: 4
+                }
             }
         }
 
