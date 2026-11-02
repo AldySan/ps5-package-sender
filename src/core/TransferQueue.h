@@ -45,6 +45,7 @@ public:
 signals:
     void queueChanged();
     void notify(const QString &message);
+    void historyChanged();
 
 private:
     void pump();
