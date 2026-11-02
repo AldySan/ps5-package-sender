@@ -51,6 +51,8 @@ ComboBox {
         y: control.height + 4
         width: control.width
         padding: 6
+        height: Math.min(contentItem.implicitHeight + 2 * padding,
+                         control.Window.window.height - 12)
 
         background: Rectangle {
             color: Theme.surface
