@@ -292,9 +292,10 @@ void Application::saveIpSettings()
 
 void Application::refreshPcAddresses()
 {
+    const QList<LanNetwork> nets = Discovery::lanNetworks();
     QStringList addresses;
     QStringList labels;
-    for (const LanNetwork &net : Discovery::lanNetworks()) {
+    for (const LanNetwork &net : nets) {
         const QString ip = net.address.toString();
         addresses.append(ip);
         labels.append(net.name.isEmpty() ? ip
@@ -308,7 +309,7 @@ void Application::refreshPcAddresses()
     }
     if (!m_pcIp.isEmpty() && m_pcAddresses.contains(m_pcIp))
         return;
-    const QString best = Discovery::bestPcIpFor(Discovery::lanNetworks(), m_psIp);
+    const QString best = Discovery::bestPcIpFor(nets, m_psIp);
     if (!best.isEmpty())
         setPcIp(best);
 }
