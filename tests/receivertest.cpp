@@ -85,10 +85,12 @@ private:
 template <typename F>
 void waitCallback(F &&startCallback, int timeoutMs = 5000)
 {
-    QEventLoop loop;
-    QTimer::singleShot(timeoutMs, &loop, &QEventLoop::quit);
-    startCallback([&loop]() { loop.quit(); });
-    loop.exec();
+    // The loop must outlive waitCallback(): a reply that lands after the
+    // timeout would otherwise call quit() on a destroyed stack object.
+    auto loop = std::make_shared<QEventLoop>();
+    QTimer::singleShot(timeoutMs, loop.get(), &QEventLoop::quit);
+    startCallback([loop]() { loop->quit(); });
+    loop->exec();
 }
 
 int main(int argc, char *argv[])
