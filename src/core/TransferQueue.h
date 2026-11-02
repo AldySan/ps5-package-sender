@@ -65,7 +65,6 @@ private:
     QString m_pcIp;
     QString m_activePushId;
     QString m_activeCopyId;
-    ReceiverStatus m_lastStatus;
     bool m_consoleIdle = true;
 };
 

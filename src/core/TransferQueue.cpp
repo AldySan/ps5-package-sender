@@ -119,6 +119,8 @@ void TransferQueue::startInstall(QueueItem &item)
         if (!it)
             return;
         m_activePushId.clear();
+        if (terminalState(it->state))
+            return;
         if (!ok) {
             finishItem(*it, TransferState::Failed,
                        reply.size() > 80 ? reply.left(80) : reply);
@@ -154,6 +156,11 @@ void TransferQueue::startCopy(QueueItem &item)
         QueueItem *it = mutableItem(id);
         if (!it)
             return;
+        if (terminalState(it->state)) {
+            m_activeCopyId.clear();
+            pump();
+            return;
+        }
         if (!ok) {
             finishItem(*it, TransferState::Failed, tr("console not reachable"));
             m_activeCopyId.clear();
@@ -178,6 +185,11 @@ void TransferQueue::startCopy(QueueItem &item)
             QueueItem *item2 = mutableItem(id);
             if (!item2)
                 return;
+            if (terminalState(item2->state)) {
+                m_activeCopyId.clear();
+                pump();
+                return;
+            }
             if (!ok) {
                 finishItem(*item2, TransferState::Failed,
                            reply.size() > 80 ? reply.left(80) : reply);
@@ -190,7 +202,6 @@ void TransferQueue::startCopy(QueueItem &item)
 
 void TransferQueue::onReceiverStatus(const ReceiverStatus &status)
 {
-    m_lastStatus = status;
     m_consoleIdle = status.online && !status.busy && status.active == 0;
 
     for (QueueItem &item : m_items) {
@@ -246,6 +257,10 @@ void TransferQueue::verifyCopy(QueueItem &item)
             return;
         it->verifying = false;
         m_activeCopyId.clear();
+        if (terminalState(it->state)) {
+            pump();
+            return;
+        }
         if (ok && exists && size == it->size) {
             it->sent = it->size;
             finishItem(*it, TransferState::Done, tr("copied"));
@@ -384,16 +399,23 @@ void TransferQueue::cancelRow(const QString &id)
     QueueItem *item = mutableItem(id);
     if (!item)
         return;
-    if (item->isCopy && (item->state == TransferState::Copying
-        || item->state == TransferState::Paused)) {
+    if (item->isCopy
+        && (item->state == TransferState::Copying
+            || item->state == TransferState::Paused)) {
         m_receiver->pullCancel([this, id](bool, const QString &) {
             QueueItem *it = mutableItem(id);
-            if (!it)
+            if (!it || terminalState(it->state))
                 return;
             m_activeCopyId.clear();
             finishItem(*it, TransferState::Cancelled, tr("cancelled (partial kept)"));
             pump();
         });
+        return;
+    }
+    if (item->isCopy && item->state == TransferState::Pushing) {
+        m_activeCopyId.clear();
+        finishItem(*item, TransferState::Cancelled, tr("cancelled"));
+        pump();
         return;
     }
     if (item->state == TransferState::Queued || item->state == TransferState::Paused) {
