@@ -83,7 +83,9 @@ public:
     }
 
     int installCalls = 0;
+    int installReplies = 0;
     bool delayNextInstall = false;
+    int installReplyDelayMs = 600;
 
 private:
     void incomingConnection(qintptr handle) override
@@ -146,6 +148,7 @@ private:
         const QString name = body.value(QStringLiteral("name")).toString();
         const bool fail = name.contains(QLatin1String("FAILME")) && m_installFailures < 1;
         const auto respond = [this, sock, fail, url]() {
+            installReplies++;
             if (fail) {
                 m_installFailures++;
                 replyJson(sock, "{\"status\":\"fail\"}");
@@ -162,7 +165,7 @@ private:
         };
         if (delayNextInstall) {
             delayNextInstall = false;
-            QTimer::singleShot(600, this, respond);
+            QTimer::singleShot(installReplyDelayMs, this, respond);
         } else {
             respond();
         }
@@ -390,6 +393,50 @@ int main(int argc, char *argv[])
         waitFor([&] { return false; }, 800);
         CHECK(queue.model()->itemAt(4).state == ps5::TransferState::Cancelled);
         CHECK(queue.model()->itemAt(4).message == "cancelled");
+
+        // --- a late reply must not release another item's push slot ---
+        ps5::LibraryRow firstRow = row;
+        firstRow.title = "First Push";
+        ps5::LibraryRow secondRow = row;
+        secondRow.title = "Second Push";
+        ps5::LibraryRow thirdRow = row;
+        thirdRow.title = "Third Push";
+
+        const int callsBefore = console.installCalls;
+        const int repliesBefore = console.installReplies;
+        console.delayNextInstall = true;
+        queue.enqueue({firstRow}, false);
+        CHECK(waitFor([&] { return console.installCalls == callsBefore + 1; }, 5000));
+        CHECK(waitFor([&] {
+            return queue.model()->count() == 6
+                && queue.model()->itemAt(5).state == ps5::TransferState::Pushing;
+        }, 5000));
+        queue.cancelRow(queue.model()->itemAt(5).id);
+        CHECK(queue.model()->itemAt(5).state == ps5::TransferState::Cancelled);
+
+        console.delayNextInstall = true;
+        console.installReplyDelayMs = 1500;
+        queue.enqueue({secondRow}, false);
+        CHECK(waitFor([&] { return console.installCalls == callsBefore + 2; }, 5000));
+        CHECK(queue.model()->itemAt(6).state == ps5::TransferState::Pushing);
+
+        // Let the cancelled item's delayed reply land while the second push
+        // is still waiting for its own (much later) reply.
+        CHECK(waitFor([&] { return console.installReplies == repliesBefore + 1; },
+                      5000));
+
+        // The third item must stay queued: the second push still owns the slot.
+        queue.enqueue({thirdRow}, false);
+        CHECK(queue.model()->itemAt(7).state == ps5::TransferState::Queued);
+        console.installReplyDelayMs = 600;
+
+        CHECK(waitFor([&] {
+            return queue.model()->itemAt(6).state == ps5::TransferState::Done;
+        }, 15000));
+        CHECK(waitFor([&] {
+            return queue.model()->itemAt(7).state == ps5::TransferState::Done;
+        }, 15000));
+        CHECK(queue.model()->itemAt(5).state == ps5::TransferState::Cancelled);
     }
 
     if (failures == 0) {

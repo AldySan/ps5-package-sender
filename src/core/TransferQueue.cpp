@@ -118,7 +118,10 @@ void TransferQueue::startInstall(QueueItem &item)
         QueueItem *it = mutableItem(id);
         if (!it)
             return;
-        m_activePushId.clear();
+        // The item may have been cancelled while this reply was in flight and
+        // another push may already own the slot; only release what is ours.
+        if (m_activePushId == id)
+            m_activePushId.clear();
         if (terminalState(it->state))
             return;
         if (!ok) {
@@ -157,19 +160,22 @@ void TransferQueue::startCopy(QueueItem &item)
         if (!it)
             return;
         if (terminalState(it->state)) {
-            m_activeCopyId.clear();
+            if (m_activeCopyId == id)
+                m_activeCopyId.clear();
             pump();
             return;
         }
         if (!ok) {
             finishItem(*it, TransferState::Failed, tr("console not reachable"));
-            m_activeCopyId.clear();
+            if (m_activeCopyId == id)
+                m_activeCopyId.clear();
             pump();
             return;
         }
         if (exists && size > 0 && size == it->size) {
             finishItem(*it, TransferState::Skipped, tr("already on console"));
-            m_activeCopyId.clear();
+            if (m_activeCopyId == id)
+                m_activeCopyId.clear();
             pump();
             return;
         }
@@ -186,14 +192,16 @@ void TransferQueue::startCopy(QueueItem &item)
             if (!item2)
                 return;
             if (terminalState(item2->state)) {
-                m_activeCopyId.clear();
+                if (m_activeCopyId == id)
+                    m_activeCopyId.clear();
                 pump();
                 return;
             }
             if (!ok) {
                 finishItem(*item2, TransferState::Failed,
                            reply.size() > 80 ? reply.left(80) : reply);
-                m_activeCopyId.clear();
+                if (m_activeCopyId == id)
+                    m_activeCopyId.clear();
                 pump();
             }
         });
@@ -256,7 +264,8 @@ void TransferQueue::verifyCopy(QueueItem &item)
         if (!it)
             return;
         it->verifying = false;
-        m_activeCopyId.clear();
+        if (m_activeCopyId == id)
+            m_activeCopyId.clear();
         if (terminalState(it->state)) {
             pump();
             return;
@@ -293,7 +302,9 @@ void TransferQueue::onReceiverOffline()
         if (!item.isCopy && item.state == TransferState::Downloading) {
             item.message = tr("console went offline — will resume");
             item.state = TransferState::Queued;
-            m_activePushId.clear();
+            // Another push may already be in flight; leave its marker alone.
+            if (m_activePushId == item.id)
+                m_activePushId.clear();
             m_server->revoke(item.serverId);
             m_model->updateItem(item);
             emit queueChanged();
