@@ -193,6 +193,7 @@ private:
     ReceiverClient *m_receiver = nullptr;
     UpdateChecker *m_updater = nullptr;
     QTimer m_pollTimer;
+    bool m_statusPollInFlight = false;
     int m_missedPolls = 0;
     int m_pollCount = 0;
 
