@@ -23,6 +23,7 @@ struct PkgData {
 namespace PkgReader {
 
 PkgData read(const QString &path);
+bool isLibraryFile(const QString &suffix);
 bool isImageFile(const QString &suffix);
 QString titleIdFromName(const QString &fileName);
 

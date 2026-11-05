@@ -167,7 +167,7 @@ ApplicationWindow {
             visible: parent.containsDrag
             Label {
                 anchors.centerIn: parent
-                text: qsTr("Drop PKG files or folders")
+                text: qsTr("Drop PKG/FPKG files or folders")
                 color: Theme.accent
                 font.pixelSize: 16
             }

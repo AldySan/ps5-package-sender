@@ -26,7 +26,7 @@ Page {
     FileDialog {
         id: pkgDialog
         title: qsTr("Select packages and disc images")
-        nameFilters: [qsTr("Packages and images (*.pkg *.exfat *.ffpkg *.ffpfs *.ffpfsc)")]
+        nameFilters: [qsTr("Packages and images (*.pkg *.fpkg *.exfat *.ffpkg *.ffpfs *.ffpfsc)")]
         fileMode: FileDialog.OpenFiles
         currentFolder: app.lastPickFolder.length > 0
                        ? "file://" + app.lastPickFolder : ""
@@ -167,7 +167,7 @@ Page {
             horizontalAlignment: Text.AlignHCenter
             verticalAlignment: Text.AlignVCenter
             text: app.scanning ? qsTr("Scanning…")
-                 : qsTr("No packages yet — add a folder or drop PKG files here")
+                 : qsTr("No packages yet — add a folder or drop PKG/FPKG files here")
             color: Theme.textMuted
             font.pixelSize: 14
             wrapMode: Text.WordWrap

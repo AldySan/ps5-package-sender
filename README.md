@@ -8,9 +8,10 @@
 [![Release](https://img.shields.io/github/v/release/AldySan/ps5-package-sender)](https://github.com/AldySan/ps5-package-sender/releases)
 [![License: GPL v3](https://img.shields.io/badge/license-GPL--3.0-blue)](LICENSE)
 
-A portable desktop client that installs PlayStation 5 packages (`.pkg`) and
-copies disc images (`.exfat`, `.ffpkg`, `.ffpfs`, `.ffpfsc`) to a jailbroken
-PS5 over your home network — no USB drive, no FTP, no installer on the PC.
+A portable desktop client that installs PlayStation 5 packages (`.pkg`,
+`.fpkg`) and copies disc images (`.exfat`, `.ffpkg`, `.ffpfs`, `.ffpfsc`)
+to a jailbroken PS5 over your home network — no USB drive, no FTP, no
+installer on the PC.
 
 Built with C++17, Qt 6 (QML / Qt Quick Controls), CMake and SQLite. Builds
 are published for **Windows** and **Linux** and are fully portable: unpack
