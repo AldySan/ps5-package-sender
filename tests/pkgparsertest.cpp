@@ -215,6 +215,23 @@ int main()
     }
 
     {
+        PkgLayout layout;
+        const QByteArray pkg = buildCnt(layout);
+        const QString path = dir.filePath("game-fake.fpkg");
+        QFile f(path);
+        f.open(QIODevice::WriteOnly);
+        f.write(pkg);
+        f.close();
+        const ps5::PkgData d = ps5::PkgReader::read(path);
+        CHECK(d.title == "Test PS5 Game");
+        CHECK(d.titleId == "PPSA90001");
+        CHECK(d.platform == "PS5");
+        CHECK(d.format == "fpkg");
+        CHECK(!d.isDlc);
+        CHECK(!ps5::PkgReader::isImageFile(d.format));
+    }
+
+    {
         const QString path = dir.filePath("PPSA12345 My Dump.exfat");
         QFile f(path);
         f.open(QIODevice::WriteOnly);
@@ -228,8 +245,16 @@ int main()
     }
 
     {
+        CHECK(ps5::PkgReader::isLibraryFile("fpkg"));
+        CHECK(ps5::PkgReader::isLibraryFile("FPKG"));
+        CHECK(ps5::PkgReader::isLibraryFile("pkg"));
+        CHECK(ps5::PkgReader::isLibraryFile("PKG"));
+        CHECK(ps5::PkgReader::isLibraryFile("ffpkg"));
+        CHECK(!ps5::PkgReader::isLibraryFile("zip"));
+        CHECK(!ps5::PkgReader::isLibraryFile(""));
         CHECK(ps5::PkgReader::isImageFile("FFPKG"));
         CHECK(!ps5::PkgReader::isImageFile("pkg"));
+        CHECK(!ps5::PkgReader::isImageFile("fpkg"));
         CHECK(ps5::PkgReader::titleIdFromName("CUSA00123 something") == "CUSA00123");
     }
 
