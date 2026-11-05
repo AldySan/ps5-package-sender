@@ -144,6 +144,17 @@ Rectangle {
                 ToolTip.visible: hovered
                 ToolTip.text: qsTr("Show this title family")
             }
+
+            AppButton {
+                flat: true
+                text: qsTr("✕")
+                implicitWidth: 30
+                implicitHeight: 22
+                font.pixelSize: 11
+                onClicked: app.removeEntry(model.id)
+                ToolTip.visible: hovered
+                ToolTip.text: qsTr("Remove from the library (the file stays on disk)")
+            }
         }
     }
 }
