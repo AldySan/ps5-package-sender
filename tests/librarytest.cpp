@@ -4,6 +4,8 @@
 #include <QTemporaryDir>
 #include <QTimer>
 
+#include <algorithm>
+
 #include "../src/core/LibraryModel.h"
 #include "../src/core/LibraryScanner.h"
 #include "../src/db/Database.h"
@@ -28,7 +30,7 @@ static void put32be(QByteArray &b, qsizetype off, quint32 v)
     b[off + 3] = char(v);
 }
 
-static QString makePkg(const QString &dir, const char *title)
+static QString makePkg(const QString &dir, const char *title, const char *ext = "pkg")
 {
     const quint32 tableOff = 0x5A0;
     const quint32 nameTableOff = tableOff + 4 * 0x20;
@@ -63,7 +65,7 @@ static QString makePkg(const QString &dir, const char *title)
     memcpy(pkg.data() + nameTableOff, names.constData(), 40);
     memcpy(pkg.data() + 0x1004, param.constData(), param.size());
 
-    const QString path = dir + "/game-" + QString::fromUtf8(title) + ".pkg";
+    const QString path = dir + "/game-" + QString::fromUtf8(title) + "." + ext;
     QFile f(path);
     f.open(QIODevice::WriteOnly);
     f.write(pkg);
@@ -99,13 +101,14 @@ int main(int argc, char *argv[])
 
     makePkg(dir.path(), "Alpha Game");
     makePkg(dir.path(), "Beta Game");
+    makePkg(dir.path(), "Gamma Game", "fpkg");
     db.addScannedRoot(dir.path());
 
     scanAndWait(scanner, db.scannedRoots());
 
     const QList<ps5::LibraryRow> rows = db.libraryRows();
-    CHECK(rows.size() == 2);
-    if (rows.size() == 2) {
+    CHECK(rows.size() == 3);
+    if (rows.size() == 3) {
         CHECK(rows.at(0).title == "Alpha Game");
         CHECK(rows.at(0).titleId == "PPSA90001");
         CHECK(rows.at(0).platform == "PS5");
@@ -113,6 +116,18 @@ int main(int argc, char *argv[])
         CHECK(rows.at(0).size > 0x1000);
         CHECK(!rows.at(0).hasIcon);
         CHECK(db.libraryIcon(rows.at(0).id).isEmpty());
+    }
+
+    {
+        const QList<ps5::LibraryRow> all = db.libraryRows();
+        const auto it = std::find_if(all.cbegin(), all.cend(),
+            [](const ps5::LibraryRow &r) { return r.format == "fpkg"; });
+        CHECK(it != all.cend());
+        if (it != all.cend()) {
+            CHECK(it->title == "Gamma Game");
+            CHECK(it->platform == "PS5");
+            CHECK(it->titleId == "PPSA90001");
+        }
     }
 
     model.reload();
@@ -137,7 +152,7 @@ int main(int argc, char *argv[])
 
     const QString lone = makePkg(dir.path(), "Lone Game");
     scanAndWait(scanner, {lone});
-    CHECK(db.libraryRows().size() == 3);
+    CHECK(db.libraryRows().size() == 4);
     CHECK(db.scannedRoots() == QStringList{dir.path()});
 
     {
@@ -152,10 +167,10 @@ int main(int argc, char *argv[])
         db.upsertLibraryEntry(image);
     }
     model.reload();
-    CHECK(model.rowCount() == 4);
+    CHECK(model.rowCount() == 5);
     model.selectVisible(true);
-    CHECK(model.selectedCount() == 4);
-    CHECK(model.selectedPkgCount() == 3);
+    CHECK(model.selectedCount() == 5);
+    CHECK(model.selectedPkgCount() == 4);
     CHECK(model.selectedImageCount() == 1);
     model.clearSelection();
     CHECK(model.selectedPkgCount() == 0);

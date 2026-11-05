@@ -304,6 +304,14 @@ QByteArray findIcon(QFile &file, const Container &cnt)
 
 namespace PkgReader {
 
+bool isLibraryFile(const QString &suffix)
+{
+    const QString s = suffix.toLower();
+    return s == QLatin1String("pkg") || s == QLatin1String("fpkg")
+        || s == QLatin1String("exfat") || s == QLatin1String("ffpkg")
+        || s == QLatin1String("ffpfsc") || s == QLatin1String("ffpfs");
+}
+
 bool isImageFile(const QString &suffix)
 {
     const QString s = suffix.toLower();

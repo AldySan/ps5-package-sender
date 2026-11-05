@@ -11,18 +11,6 @@
 
 namespace ps5 {
 
-namespace {
-
-bool isLibraryFile(const QString &suffix)
-{
-    const QString s = suffix.toLower();
-    return s == QLatin1String("pkg") || s == QLatin1String("exfat")
-        || s == QLatin1String("ffpkg") || s == QLatin1String("ffpfsc")
-        || s == QLatin1String("ffpfs");
-}
-
-} // namespace
-
 void LibraryScanner::scan(const QStringList &roots)
 {
     if (m_running)
@@ -45,7 +33,7 @@ void LibraryScanner::scan(const QStringList &roots)
                 int found = 0;
                 int parsed = 0;
                 const auto processFile = [&](const QFileInfo &fi) {
-                    if (!isLibraryFile(fi.suffix()))
+                    if (!PkgReader::isLibraryFile(fi.suffix()))
                         return;
                     found++;
                     const auto hit = known.constFind(fi.absoluteFilePath());

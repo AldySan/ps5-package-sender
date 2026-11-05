@@ -445,8 +445,10 @@ void Application::copySelectedImages()
 void Application::enqueueSelection(bool copy)
 {
     const QList<qlonglong> ids = m_library->selectedIds();
-    if (ids.isEmpty())
+    if (ids.isEmpty()) {
+        emit notify(tr("Select at least one item first"));
         return;
+    }
     if (m_psIp.isEmpty()) {
         emit notify(tr("Set the console IP first (Detect helps)"));
         return;
@@ -459,8 +461,11 @@ void Application::enqueueSelection(bool copy)
         if (copy == isImage)
             rows.append(row);
     }
-    if (rows.isEmpty())
+    if (rows.isEmpty()) {
+        emit notify(copy ? tr("No disc images in the selection")
+                         : tr("No installable packages in the selection"));
         return;
+    }
     m_queue->enqueue(rows, copy);
     emit notify(copy ? tr("%1 image(s) queued for copy").arg(rows.size())
                      : tr("%1 package(s) queued for install").arg(rows.size()));
@@ -508,18 +513,27 @@ void Application::addDroppedUrls(const QList<QUrl> &urls)
 {
     QStringList roots;
     QStringList files;
+    int skipped = 0;
     for (const QUrl &url : urls) {
         const QString local = url.toLocalFile();
-        if (local.isEmpty())
+        if (local.isEmpty()) {
+            skipped++;
             continue;
+        }
         const QFileInfo fi(local);
         if (fi.isDir()) {
             Database::instance().addScannedRoot(fi.absoluteFilePath());
             roots.append(fi.absoluteFilePath());
         } else if (fi.isFile()) {
-            files.append(fi.absoluteFilePath());
+            if (PkgReader::isLibraryFile(fi.suffix()))
+                files.append(fi.absoluteFilePath());
+            else
+                skipped++;
         }
     }
+    if (skipped > 0)
+        emit notify(tr("Skipped %1 file(s) — only PKG, FPKG and disc images are supported")
+                        .arg(skipped));
     if (!roots.isEmpty() || !files.isEmpty())
         startScan(roots + files);
 }
