@@ -150,12 +150,15 @@ Page {
             ScrollBar.vertical: ScrollBar {}
 
             delegate: Item {
+                id: cell
+                required property var model
                 width: grid.cellWidth
                 height: grid.cellHeight
 
                 GameCard {
                     anchors.fill: parent
                     anchors.margins: 4
+                    model: cell.model
                 }
             }
         }
