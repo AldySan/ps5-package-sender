@@ -202,8 +202,11 @@ void Application::setPcIp(const QString &ip)
     emit pcIpChanged();
     if (m_queue)
         m_queue->setPcIp(m_pcIp);
-    if (m_shareEnabled)
+    if (m_shareEnabled) {
         m_server->setAnnouncing(true, m_pcIp);
+        // The shared catalog URL embeds the PC address, so refresh bindings.
+        emit shareEnabledChanged();
+    }
 }
 
 bool Application::shareEnabled() const
@@ -323,7 +326,13 @@ void Application::pollReceiver()
         }
         return;
     }
+    // Skip while the previous status request is still in flight so replies
+    // cannot pile up and land out of order on slow or unreachable consoles.
+    if (m_statusPollInFlight)
+        return;
+    m_statusPollInFlight = true;
     m_receiver->status([this](const ReceiverStatus &st) {
+        m_statusPollInFlight = false;
         if (!st.online) {
             m_missedPolls++;
             if (m_missedPolls == OfflineAfterMissedPolls && m_queue)
@@ -529,8 +538,10 @@ void Application::removeEntry(qlonglong id)
 
 void Application::startScan(const QStringList &roots)
 {
-    if (m_scanning)
+    if (m_scanning) {
+        emit notify(tr("A scan is already running — try again once it finishes"));
         return;
+    }
     m_scanning = true;
     m_scanStatus = tr("Scanning folders…");
     emit scanningChanged();
