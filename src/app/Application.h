@@ -111,6 +111,7 @@ public:
     Q_INVOKABLE void addDroppedUrls(const QList<QUrl> &urls);
     Q_INVOKABLE void rescanAll();
     Q_INVOKABLE void removeEntry(qlonglong id);
+    Q_INVOKABLE void removeSelected();
 
     Q_INVOKABLE void detectConsoles();
     Q_INVOKABLE void cancelDiscovery();
