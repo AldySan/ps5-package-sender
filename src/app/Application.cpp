@@ -26,6 +26,7 @@ namespace {
 constexpr int PollIntervalMs = 1000;
 constexpr int OfflineAfterMissedPolls = 3;
 constexpr int SpaceRefreshPolls = 10;
+constexpr int AddressRefreshPolls = 10;
 
 } // namespace
 
@@ -47,6 +48,11 @@ Application::Application(QObject *parent)
 
     m_library = new LibraryModel(this);
     m_library->reload();
+    // A removal that the database refused must not pass silently — the
+    // per-card ✕ has no other feedback path.
+    connect(m_library, &LibraryModel::removeFailed, this, [this](int count) {
+        emit notify(tr("%1 item(s) could not be removed — try again").arg(count));
+    });
 
     m_scanner = new LibraryScanner(this);
     connect(m_scanner, &LibraryScanner::progress, this, [this](int found, int parsed) {
@@ -60,6 +66,9 @@ Application::Application(QObject *parent)
         emit scanStatusChanged();
         pruneMissing();
         m_library->reload();
+    });
+    connect(m_scanner, &LibraryScanner::failed, this, [this](const QString &reason) {
+        emit notify(tr("The scan could not save its results: %1").arg(reason));
     });
 
     m_receiver = new ReceiverClient(this);
@@ -216,7 +225,7 @@ bool Application::shareEnabled() const
 
 QString Application::catalogUrl() const
 {
-    if (!m_shareEnabled || !m_server)
+    if (!m_shareEnabled || !m_server || !m_server->isListening())
         return QString();
     return m_server->catalogUrl(m_pcIp);
 }
@@ -225,6 +234,14 @@ void Application::setShareEnabled(bool on)
 {
     if (m_shareEnabled == on || !m_server)
         return;
+    if (on && !m_server->isListening()) {
+        // The file server port never bound; sharing would advertise a dead
+        // URL on the console. Snap the toggle back and say why.
+        emit shareEnabledChanged();
+        emit notify(tr("Cannot share — the PC file server port is unavailable "
+                       "(another app may be using it)"));
+        return;
+    }
     m_shareEnabled = on;
     m_server->setAnnouncing(on, m_pcIp);
     emit shareEnabledChanged();
@@ -319,6 +336,10 @@ void Application::refreshPcAddresses()
 
 void Application::pollReceiver()
 {
+    // Refresh the PC address list periodically so a network connected after
+    // startup still appears (and gets picked) without an app restart.
+    if (++m_pollTicks % AddressRefreshPolls == 0)
+        refreshPcAddresses();
     if (m_psIp.isEmpty()) {
         if (m_receiverOnline) {
             m_receiverOnline = false;
@@ -453,6 +474,11 @@ void Application::enqueueSelection(bool copy)
         emit notify(tr("Set the console IP first (Detect helps)"));
         return;
     }
+    if (m_pcIp.isEmpty()) {
+        emit notify(tr("The PC address is not set yet — connect to a network "
+                       "and it is picked automatically"));
+        return;
+    }
     QList<LibraryRow> rows;
     for (const LibraryRow &row : Database::instance().libraryRows()) {
         if (!ids.contains(row.id))
@@ -503,8 +529,10 @@ void Application::useConsole(const QString &ip)
 void Application::addFolder(const QUrl &folder)
 {
     const QString path = QDir::toNativeSeparators(folder.toLocalFile());
-    if (path.isEmpty() || !QDir(path).exists())
+    if (path.isEmpty() || !QDir(path).exists()) {
+        emit notify(tr("That folder does not exist (or is not readable)"));
         return;
+    }
     Database::instance().addScannedRoot(path);
     startScan({path});
 }
@@ -541,8 +569,11 @@ void Application::addDroppedUrls(const QList<QUrl> &urls)
 void Application::rescanAll()
 {
     const QStringList roots = Database::instance().scannedRoots();
-    if (!roots.isEmpty())
-        startScan(roots);
+    if (roots.isEmpty()) {
+        emit notify(tr("Nothing to rescan — add a folder or drop packages first"));
+        return;
+    }
+    startScan(roots);
 }
 
 void Application::removeEntry(qlonglong id)
@@ -552,11 +583,14 @@ void Application::removeEntry(qlonglong id)
 
 void Application::removeSelected()
 {
+    const int selected = m_library->selectedCount();
     const int removed = m_library->removeSelected();
     emit notify(removed > 0
         ? tr("Removed %1 item(s) from the library — the files stay on disk")
               .arg(removed)
-        : tr("Nothing to remove — tick the entries first"));
+        : (selected > 0
+               ? tr("The removal did not go through — the entries are still there")
+               : tr("Nothing to remove — tick the entries first")));
 }
 
 void Application::startScan(const QStringList &roots)

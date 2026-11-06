@@ -66,6 +66,7 @@ signals:
     void filtersChanged();
     void selectedCountChanged();
     void countChanged();
+    void removeFailed(int count);
 
 private:
     struct Item {

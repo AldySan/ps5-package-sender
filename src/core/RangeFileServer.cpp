@@ -316,6 +316,13 @@ void RangeFileServer::revoke(const QString &id)
     m_revoked.insert(id, true);
 }
 
+void RangeFileServer::forget(const QString &id)
+{
+    m_files.remove(id);
+    m_revoked.remove(id);
+    m_served.remove(id);
+}
+
 void RangeFileServer::resetServed(const QString &id)
 {
     m_served.insert(id, 0);

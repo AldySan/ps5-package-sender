@@ -19,6 +19,7 @@ public:
 signals:
     void progress(int found, int parsed);
     void finished();
+    void failed(const QString &reason);
 
 private:
     bool m_running = false;

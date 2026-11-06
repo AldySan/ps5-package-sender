@@ -55,7 +55,7 @@ Page {
 
             AppButton {
                 text: qsTr("Rescan")
-                enabled: !app.scanning && app.libraryModel.count > 0
+                enabled: !app.scanning
                 onClicked: app.rescanAll()
             }
 

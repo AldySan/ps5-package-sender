@@ -3,6 +3,7 @@
 #include <QDirIterator>
 #include <QFileInfo>
 #include <QSqlDatabase>
+#include <QSqlError>
 #include <QSqlQuery>
 #include <QtConcurrent/QtConcurrentRun>
 
@@ -23,6 +24,8 @@ void LibraryScanner::scan(const QStringList &roots)
 
     (void)QtConcurrent::run([this, roots, known] {
         const QString connectionName = QStringLiteral("libraryscan");
+        QString openError;
+        int unsaved = 0;
         {
             QSqlDatabase db = QSqlDatabase::addDatabase(
                 QStringLiteral("QSQLITE"), connectionName);
@@ -32,6 +35,7 @@ void LibraryScanner::scan(const QStringList &roots)
                 pragma.exec(QStringLiteral("PRAGMA busy_timeout=5000"));
                 int found = 0;
                 int parsed = 0;
+                int unsaved = 0;
                 const auto processFile = [&](const QFileInfo &fi) {
                     if (!PkgReader::isLibraryFile(fi.suffix()))
                         return;
@@ -58,7 +62,10 @@ void LibraryScanner::scan(const QStringList &roots)
                     row.icon = data.icon;
                     if (row.title.isEmpty())
                         row.title = fi.completeBaseName();
-                    Database::upsertLibraryEntryOn(db, row);
+                    // A failed write must not pass as a parsed item — the
+                    // user would never see it and the scan would claim success.
+                    if (Database::upsertLibraryEntryOn(db, row) == 0)
+                        unsaved++;
                     parsed++;
                     emit progress(found, parsed);
                 };
@@ -72,9 +79,23 @@ void LibraryScanner::scan(const QStringList &roots)
                     while (it.hasNext())
                         processFile(it.nextFileInfo());
                 }
+            } else {
+                // A scan that cannot write anything must not masquerade as a
+                // normal, empty "complete" scan — surface the failure.
+                openError = db.lastError().text();
+                if (openError.isEmpty())
+                    openError = QStringLiteral("could not open the database");
+            }
+            if (unsaved > 0) {
+                // Rows that parsed fine but could not be saved (locked or
+                // failing database) — report instead of silently dropping.
+                emit failed(QStringLiteral("%1 item(s) could not be saved")
+                                .arg(unsaved));
             }
         }
         QSqlDatabase::removeDatabase(connectionName);
+        if (!openError.isEmpty())
+            emit failed(openError);
         emit finished();
         QMetaObject::invokeMethod(this, [this] { m_running = false; },
                                   Qt::QueuedConnection);

@@ -225,7 +225,11 @@ void LibraryModel::clearSelection()
 
 void LibraryModel::removeEntry(qlonglong id)
 {
-    Database::instance().removeLibraryEntries({id});
+    if (Database::instance().removeLibraryEntries({id}) > 0) {
+        // The row refused to go away — say so instead of letting the
+        // reload silently bring it back as if nothing happened.
+        emit removeFailed(1);
+    }
     m_selected.remove(id);
     reload();
 }
@@ -235,11 +239,13 @@ int LibraryModel::removeSelected()
     const QList<qlonglong> ids = selectedIds();
     if (ids.isEmpty())
         return 0;
-    Database::instance().removeLibraryEntries(ids);
+    const int leftover = Database::instance().removeLibraryEntries(ids);
+    if (leftover > 0)
+        emit removeFailed(leftover);
     for (const qlonglong id : ids)
         m_selected.remove(id);
     reload();
-    return ids.size();
+    return ids.size() - leftover;
 }
 
 }

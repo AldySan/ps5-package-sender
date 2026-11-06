@@ -86,6 +86,10 @@ public:
     int installReplies = 0;
     bool delayNextInstall = false;
     int installReplyDelayMs = 600;
+    bool delayNextPause = false;
+    int pauseReplyDelayMs = 600;
+    int pauseCalls = 0;
+    int pauseReplies = 0;
 
 private:
     void incomingConnection(qintptr handle) override
@@ -119,7 +123,17 @@ private:
             m_cancelPull = true;
             replyJson(sock, "{\"ok\":true,\"cancelled\":true}");
         } else if (m_lastPath == "/api/pull/pause") {
-            replyJson(sock, "{\"ok\":true,\"paused\":true}");
+            pauseCalls++;
+            const auto respond = [this, sock]() {
+                pauseReplies++;
+                replyJson(sock, "{\"ok\":true,\"paused\":true}");
+            };
+            if (delayNextPause) {
+                delayNextPause = false;
+                QTimer::singleShot(pauseReplyDelayMs, this, respond);
+            } else {
+                respond();
+            }
         } else {
             replyJson(sock, "{\"status\":\"fail\",\"error\":\"Unsupported method: "
                             "use POST /api/install\"}");
@@ -437,6 +451,122 @@ int main(int argc, char *argv[])
             return queue.model()->itemAt(7).state == ps5::TransferState::Done;
         }, 15000));
         CHECK(queue.model()->itemAt(5).state == ps5::TransferState::Cancelled);
+
+        // The status poll flips Paused back to Copying (the mock never really
+        // pauses), which would make the races below nondeterministic. The
+        // pause/resume/cancel HTTP replies still land via the event loop.
+        pollTimer.stop();
+
+        // --- a late pause reply must not resurrect a cancelled copy ---
+        const QString pausePath = sourceDir.filePath("pause-race.exfat");
+        {
+            QFile f(pausePath);
+            f.open(QIODevice::WriteOnly);
+            f.write(payload);
+            f.close();
+        }
+        ps5::LibraryRow pauseRow = imageRow;
+        pauseRow.title = "Pause Race";
+        pauseRow.path = pausePath;
+        queue.enqueue({pauseRow}, true);
+        CHECK(waitFor([&] {
+            return queue.model()->count() == 9
+                && queue.model()->itemAt(8).state == ps5::TransferState::Copying;
+        }, 15000));
+        console.delayNextPause = true;
+        console.pauseReplyDelayMs = 900;
+        queue.pauseRow(queue.model()->itemAt(8).id);   // reply will land late
+        queue.cancelRow(queue.model()->itemAt(8).id);  // cancel wins the race
+        CHECK(waitFor([&] {
+            return queue.model()->itemAt(8).state == ps5::TransferState::Cancelled;
+        }, 5000));
+        CHECK(waitFor([&] { return console.pauseReplies >= 1; }, 5000));
+        waitFor([&] { return false; }, 400);
+        CHECK(queue.model()->itemAt(8).state == ps5::TransferState::Cancelled);
+        CHECK(queue.model()->itemAt(8).message == "cancelled (partial kept)");
+
+        // --- a late resume reply must not resurrect a cancelled copy ---
+        const QString resumePath = sourceDir.filePath("resume-race.exfat");
+        {
+            QFile f(resumePath);
+            f.open(QIODevice::WriteOnly);
+            f.write(payload);
+            f.close();
+        }
+        ps5::LibraryRow resumeRow = imageRow;
+        resumeRow.title = "Resume Race";
+        resumeRow.path = resumePath;
+        queue.enqueue({resumeRow}, true);
+        CHECK(waitFor([&] {
+            return queue.model()->count() == 10
+                && queue.model()->itemAt(9).state == ps5::TransferState::Copying;
+        }, 15000));
+        queue.pauseRow(queue.model()->itemAt(9).id);
+        CHECK(waitFor([&] {
+            return queue.model()->itemAt(9).state == ps5::TransferState::Paused;
+        }, 5000));
+        console.delayNextPause = true;
+        console.pauseReplyDelayMs = 900;
+        queue.resumeRow(queue.model()->itemAt(9).id);  // reply will land late
+        // Cancelling a paused copy goes through the console (async pullCancel),
+        // so the cancelled state settles once that reply arrives.
+        queue.cancelRow(queue.model()->itemAt(9).id);
+        CHECK(waitFor([&] {
+            return queue.model()->itemAt(9).state == ps5::TransferState::Cancelled;
+        }, 5000));
+        // pauseReplies: 1 = pause-race delayed, 2 = the pause above,
+        // 3 = the delayed resume reply that must not resurrect the item.
+        CHECK(waitFor([&] { return console.pauseReplies >= 3; }, 5000));
+        waitFor([&] { return false; }, 400);
+        CHECK(queue.model()->itemAt(9).state == ps5::TransferState::Cancelled);
+
+        // --- enqueueing a file that no longer exists fails fast ---
+        // The scan metadata can outlive the file on disk; the row must fail
+        // in the queue with a clear message instead of pushing a dead URL
+        // and failing minutes later inside the console install.
+        QStringList notifyLog;
+        QObject::connect(&queue, &ps5::TransferQueue::notify, &queue,
+                         [&](const QString &msg) { notifyLog << msg; });
+        ps5::LibraryRow ghostRow = row;
+        ghostRow.title = "Ghost File";
+        ghostRow.path = sourceDir.filePath("never-existed.pkg");
+        const int callsBeforeGhost = console.installCalls;
+        queue.enqueue({ghostRow}, false);
+        CHECK(queue.model()->count() == 11);
+        CHECK(queue.model()->itemAt(10).state == ps5::TransferState::Failed);
+        CHECK(queue.model()->itemAt(10).message
+              == "file no longer exists on the PC");
+        // no request was wasted on the dead file
+        CHECK(console.installCalls == callsBeforeGhost);
+        bool ghostNotified = false;
+        for (const QString &msg : notifyLog)
+            ghostNotified |= msg.contains(QLatin1String("no longer exist"));
+        CHECK(ghostNotified);
+
+        // --- retrying after the file was deleted fails fast too ---
+        // The Done transition needs the status poll, which was paused for the
+        // pause/resume races above.
+        pollTimer.start();
+        const QString doomedPath = sourceDir.filePath("doomed.pkg");
+        {
+            QFile f(doomedPath);
+            f.open(QIODevice::WriteOnly);
+            CHECK(f.isOpen());
+            f.write(payload);
+            f.close();
+        }
+        ps5::LibraryRow doomedRow = row;
+        doomedRow.title = "Doomed File";
+        doomedRow.path = doomedPath;
+        queue.enqueue({doomedRow}, false);
+        CHECK(waitFor([&] {
+            return queue.model()->itemAt(11).state == ps5::TransferState::Done;
+        }, 15000));
+        CHECK(QFile::remove(doomedPath));
+        queue.retryRow(queue.model()->itemAt(11).id);
+        CHECK(queue.model()->itemAt(11).state == ps5::TransferState::Failed);
+        CHECK(queue.model()->itemAt(11).message
+              == "file no longer exists on the PC");
     }
 
     if (failures == 0) {
