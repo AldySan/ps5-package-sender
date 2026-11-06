@@ -60,11 +60,13 @@ public:
     Q_INVOKABLE QList<qlonglong> selectedIds() const;
     Q_INVOKABLE void clearSelection();
     Q_INVOKABLE void removeEntry(qlonglong id);
+    Q_INVOKABLE int removeSelected();
 
 signals:
     void filtersChanged();
     void selectedCountChanged();
     void countChanged();
+    void removeFailed(int count);
 
 private:
     struct Item {

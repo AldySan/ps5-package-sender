@@ -1,6 +1,9 @@
 #include <QCoreApplication>
+#include <QDir>
 #include <QEventLoop>
 #include <QFile>
+#include <QSqlDatabase>
+#include <QSqlQuery>
 #include <QTemporaryDir>
 #include <QTimer>
 
@@ -175,6 +178,124 @@ int main(int argc, char *argv[])
     model.clearSelection();
     CHECK(model.selectedPkgCount() == 0);
     CHECK(model.selectedImageCount() == 0);
+
+    // removeSelected drops exactly the ticked entries, nothing else
+    {
+        const QList<ps5::LibraryRow> all = db.libraryRows();
+        CHECK(all.size() == 5);
+        const qlonglong victim = all.constFirst().id;
+        model.setSelected(victim, true);
+        CHECK(model.selectedCount() == 1);
+        CHECK(model.removeSelected() == 1);
+        CHECK(model.rowCount() == 4);
+        CHECK(db.libraryRows().size() == 4);
+        bool victimSurvived = false;
+        for (const ps5::LibraryRow &r : db.libraryRows())
+            victimSurvived |= (r.id == victim);
+        CHECK(!victimSurvived);
+    }
+
+    // nothing selected: removeSelected is a safe no-op
+    CHECK(model.removeSelected() == 0);
+    CHECK(model.rowCount() == 4);
+
+    // select all + remove selected empties the library in one shot
+    model.selectVisible(true);
+    CHECK(model.selectedCount() == 4);
+    CHECK(model.removeSelected() == 4);
+    CHECK(model.rowCount() == 0);
+    CHECK(model.selectedCount() == 0);
+    CHECK(db.libraryRows().isEmpty());
+
+    // removal only drops library rows — the files stay, a rescan brings them back
+    scanAndWait(scanner, db.scannedRoots());
+    model.reload();
+    CHECK(db.libraryRows().size() >= 4);
+    CHECK(model.rowCount() == db.libraryRows().size());
+
+    // the per-card removeEntry path removes exactly one row
+    {
+        const QList<ps5::LibraryRow> all = db.libraryRows();
+        CHECK(all.size() >= 1);
+        model.removeEntry(all.constFirst().id);
+        CHECK(db.libraryRows().size() == all.size() - 1);
+    }
+
+    // a scan that cannot open its database is reported, not silently ignored
+#ifndef Q_OS_WIN
+    {
+        const QString dbPath = db.databasePath();
+        const QString parked = dbPath + QStringLiteral(".parked");
+        CHECK(QFile::rename(dbPath, parked));
+        CHECK(QDir().mkdir(dbPath)); // a directory cannot be a SQLite database
+        QString failure;
+        QObject::connect(&scanner, &ps5::LibraryScanner::failed, &scanner,
+                         [&failure](const QString &reason) { failure = reason; });
+        scanAndWait(scanner, db.scannedRoots());
+        CHECK(!failure.isEmpty());
+        CHECK(QDir().rmdir(dbPath));
+        CHECK(QFile::rename(parked, dbPath));
+    }
+#endif
+
+    // a write the database refuses is detected and reported, not faked
+#ifndef Q_OS_WIN
+    {
+        const QList<ps5::LibraryRow> all = db.libraryRows();
+        CHECK(all.size() >= 1);
+        const qlonglong victim = all.constFirst().id;
+        const int rowsBefore = int(all.size());
+        int removeFailures = 0;
+        QObject::connect(&model, &ps5::LibraryModel::removeFailed, &model,
+                         [&removeFailures](int) { removeFailures++; });
+
+        const QString blockName = QStringLiteral("testblocker");
+        {
+            QSqlDatabase blocker = QSqlDatabase::addDatabase(
+                QStringLiteral("QSQLITE"), blockName);
+            blocker.setDatabaseName(db.databasePath());
+            CHECK(blocker.open());
+            QSqlQuery bq(blocker);
+            bq.exec(QStringLiteral("PRAGMA busy_timeout=100"));
+            CHECK(bq.exec(QStringLiteral("BEGIN EXCLUSIVE")));
+
+            // shrink the default connection's patience so the refusal is fast
+            QSqlQuery shrink;
+            shrink.exec(QStringLiteral("PRAGMA busy_timeout=100"));
+
+            CHECK(db.removeLibraryEntries({victim}) == 1);
+
+            // a brand-new row cannot be saved either — and says so
+            ps5::LibraryRow blocked;
+            blocked.path = dir.path() + QStringLiteral("/blocked.pkg");
+            blocked.title = QStringLiteral("Blocked Game");
+            blocked.format = QStringLiteral("pkg");
+            blocked.size = 1;
+            CHECK(ps5::Database::upsertLibraryEntryOn(
+                      QSqlDatabase::database(), blocked) == 0);
+
+            // the model surfaces the refused removal instead of pretending
+            model.setSelected(victim, true);
+            CHECK(model.removeSelected() == 0);
+            CHECK(removeFailures == 1);
+            CHECK(model.rowCount() == rowsBefore); // the row survived
+
+            CHECK(bq.exec(QStringLiteral("ROLLBACK")));
+        }
+        QSqlDatabase::removeDatabase(blockName);
+        {
+            QSqlQuery restore;
+            restore.exec(QStringLiteral("PRAGMA busy_timeout=5000"));
+        }
+        model.clearSelection();
+
+        // once the lock is gone the same removal goes through
+        CHECK(db.removeLibraryEntries({victim}) == 0);
+        model.reload();
+        CHECK(model.rowCount() == rowsBefore - 1);
+        CHECK(removeFailures == 1); // no spurious extra failure signals
+    }
+#endif
 
     if (failures == 0) {
         std::fprintf(stderr, "all library tests passed\n");

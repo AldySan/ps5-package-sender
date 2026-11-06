@@ -142,10 +142,13 @@ qlonglong Database::upsertLibraryEntry(const LibraryRow &row)
     return upsertLibraryEntryOn(QSqlDatabase::database(), row);
 }
 
-void Database::removeLibraryEntries(const QList<qlonglong> &ids)
+// Removes the given entries and verifies the deletion actually happened.
+// Returns the number of ids that are still present afterwards (0 = success);
+// a failed DELETE must not masquerade as a successful removal.
+int Database::removeLibraryEntries(const QList<qlonglong> &ids)
 {
     if (ids.isEmpty())
-        return;
+        return 0;
     QSqlQuery begin;
     begin.exec(QStringLiteral("BEGIN"));
     for (qlonglong id : ids) {
@@ -154,8 +157,20 @@ void Database::removeLibraryEntries(const QList<qlonglong> &ids)
         q.addBindValue(id);
         q.exec();
     }
-    QSqlQuery commit;
-    commit.exec(QStringLiteral("COMMIT"));
+    if (!begin.exec(QStringLiteral("COMMIT"))) {
+        begin.exec(QStringLiteral("ROLLBACK"));
+        return ids.size();
+    }
+    QStringList marks;
+    marks.reserve(ids.size());
+    for (const qlonglong id : ids)
+        marks << QString::number(id);
+    QSqlQuery check;
+    check.prepare(QStringLiteral("SELECT COUNT(*) FROM library WHERE id IN (%1)")
+                      .arg(marks.join(QLatin1Char(','))));
+    if (!check.exec() || !check.next())
+        return ids.size(); // could not verify — treat as not removed
+    return check.value(0).toInt();
 }
 
 QList<LibraryRow> Database::libraryRows()
@@ -249,7 +264,7 @@ QStringList Database::customScanPaths()
     return out;
 }
 
-void Database::addHistory(const HistoryRow &row)
+bool Database::addHistory(const HistoryRow &row)
 {
     QSqlQuery q;
     q.prepare(QStringLiteral(
@@ -263,7 +278,7 @@ void Database::addHistory(const HistoryRow &row)
     q.addBindValue(row.size);
     q.addBindValue(row.ok ? 1 : 0);
     q.addBindValue(row.message);
-    q.exec();
+    return q.exec();
 }
 
 QList<HistoryRow> Database::historyRows(int limit)
