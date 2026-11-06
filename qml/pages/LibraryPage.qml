@@ -130,11 +130,19 @@ Page {
             }
 
             AppButton {
-                text: qsTr("Clear")
+                text: qsTr("Deselect")
                 flat: true
                 font.pixelSize: 12
                 enabled: page.hasSelection
                 onClicked: app.libraryModel.clearSelection()
+            }
+
+            AppButton {
+                text: qsTr("Remove selected")
+                flat: true
+                font.pixelSize: 12
+                enabled: page.hasSelection && !app.scanning
+                onClicked: app.removeSelected()
             }
         }
 

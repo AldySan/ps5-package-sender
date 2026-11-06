@@ -550,6 +550,15 @@ void Application::removeEntry(qlonglong id)
     m_library->removeEntry(id);
 }
 
+void Application::removeSelected()
+{
+    const int removed = m_library->removeSelected();
+    emit notify(removed > 0
+        ? tr("Removed %1 item(s) from the library — the files stay on disk")
+              .arg(removed)
+        : tr("Nothing to remove — tick the entries first"));
+}
+
 void Application::startScan(const QStringList &roots)
 {
     if (m_scanning) {

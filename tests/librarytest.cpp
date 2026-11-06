@@ -176,6 +176,48 @@ int main(int argc, char *argv[])
     CHECK(model.selectedPkgCount() == 0);
     CHECK(model.selectedImageCount() == 0);
 
+    // removeSelected drops exactly the ticked entries, nothing else
+    {
+        const QList<ps5::LibraryRow> all = db.libraryRows();
+        CHECK(all.size() == 5);
+        const qlonglong victim = all.constFirst().id;
+        model.setSelected(victim, true);
+        CHECK(model.selectedCount() == 1);
+        CHECK(model.removeSelected() == 1);
+        CHECK(model.rowCount() == 4);
+        CHECK(db.libraryRows().size() == 4);
+        bool victimSurvived = false;
+        for (const ps5::LibraryRow &r : db.libraryRows())
+            victimSurvived |= (r.id == victim);
+        CHECK(!victimSurvived);
+    }
+
+    // nothing selected: removeSelected is a safe no-op
+    CHECK(model.removeSelected() == 0);
+    CHECK(model.rowCount() == 4);
+
+    // select all + remove selected empties the library in one shot
+    model.selectVisible(true);
+    CHECK(model.selectedCount() == 4);
+    CHECK(model.removeSelected() == 4);
+    CHECK(model.rowCount() == 0);
+    CHECK(model.selectedCount() == 0);
+    CHECK(db.libraryRows().isEmpty());
+
+    // removal only drops library rows — the files stay, a rescan brings them back
+    scanAndWait(scanner, db.scannedRoots());
+    model.reload();
+    CHECK(db.libraryRows().size() >= 4);
+    CHECK(model.rowCount() == db.libraryRows().size());
+
+    // the per-card removeEntry path removes exactly one row
+    {
+        const QList<ps5::LibraryRow> all = db.libraryRows();
+        CHECK(all.size() >= 1);
+        model.removeEntry(all.constFirst().id);
+        CHECK(db.libraryRows().size() == all.size() - 1);
+    }
+
     if (failures == 0) {
         std::fprintf(stderr, "all library tests passed\n");
         return 0;

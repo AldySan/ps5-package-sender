@@ -226,7 +226,20 @@ void LibraryModel::clearSelection()
 void LibraryModel::removeEntry(qlonglong id)
 {
     Database::instance().removeLibraryEntries({id});
+    m_selected.remove(id);
     reload();
+}
+
+int LibraryModel::removeSelected()
+{
+    const QList<qlonglong> ids = selectedIds();
+    if (ids.isEmpty())
+        return 0;
+    Database::instance().removeLibraryEntries(ids);
+    for (const qlonglong id : ids)
+        m_selected.remove(id);
+    reload();
+    return ids.size();
 }
 
 }
