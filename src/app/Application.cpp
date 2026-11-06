@@ -26,6 +26,7 @@ namespace {
 constexpr int PollIntervalMs = 1000;
 constexpr int OfflineAfterMissedPolls = 3;
 constexpr int SpaceRefreshPolls = 10;
+constexpr int AddressRefreshPolls = 10;
 
 } // namespace
 
@@ -60,6 +61,9 @@ Application::Application(QObject *parent)
         emit scanStatusChanged();
         pruneMissing();
         m_library->reload();
+    });
+    connect(m_scanner, &LibraryScanner::failed, this, [this](const QString &reason) {
+        emit notify(tr("The scan could not save its results: %1").arg(reason));
     });
 
     m_receiver = new ReceiverClient(this);
@@ -216,7 +220,7 @@ bool Application::shareEnabled() const
 
 QString Application::catalogUrl() const
 {
-    if (!m_shareEnabled || !m_server)
+    if (!m_shareEnabled || !m_server || !m_server->isListening())
         return QString();
     return m_server->catalogUrl(m_pcIp);
 }
@@ -225,6 +229,14 @@ void Application::setShareEnabled(bool on)
 {
     if (m_shareEnabled == on || !m_server)
         return;
+    if (on && !m_server->isListening()) {
+        // The file server port never bound; sharing would advertise a dead
+        // URL on the console. Snap the toggle back and say why.
+        emit shareEnabledChanged();
+        emit notify(tr("Cannot share — the PC file server port is unavailable "
+                       "(another app may be using it)"));
+        return;
+    }
     m_shareEnabled = on;
     m_server->setAnnouncing(on, m_pcIp);
     emit shareEnabledChanged();
@@ -319,6 +331,10 @@ void Application::refreshPcAddresses()
 
 void Application::pollReceiver()
 {
+    // Refresh the PC address list periodically so a network connected after
+    // startup still appears (and gets picked) without an app restart.
+    if (++m_pollTicks % AddressRefreshPolls == 0)
+        refreshPcAddresses();
     if (m_psIp.isEmpty()) {
         if (m_receiverOnline) {
             m_receiverOnline = false;
@@ -453,6 +469,11 @@ void Application::enqueueSelection(bool copy)
         emit notify(tr("Set the console IP first (Detect helps)"));
         return;
     }
+    if (m_pcIp.isEmpty()) {
+        emit notify(tr("The PC address is not set yet — connect to a network "
+                       "and it is picked automatically"));
+        return;
+    }
     QList<LibraryRow> rows;
     for (const LibraryRow &row : Database::instance().libraryRows()) {
         if (!ids.contains(row.id))
@@ -503,8 +524,10 @@ void Application::useConsole(const QString &ip)
 void Application::addFolder(const QUrl &folder)
 {
     const QString path = QDir::toNativeSeparators(folder.toLocalFile());
-    if (path.isEmpty() || !QDir(path).exists())
+    if (path.isEmpty() || !QDir(path).exists()) {
+        emit notify(tr("That folder does not exist (or is not readable)"));
         return;
+    }
     Database::instance().addScannedRoot(path);
     startScan({path});
 }
@@ -541,8 +564,11 @@ void Application::addDroppedUrls(const QList<QUrl> &urls)
 void Application::rescanAll()
 {
     const QStringList roots = Database::instance().scannedRoots();
-    if (!roots.isEmpty())
-        startScan(roots);
+    if (roots.isEmpty()) {
+        emit notify(tr("Nothing to rescan — add a folder or drop packages first"));
+        return;
+    }
+    startScan(roots);
 }
 
 void Application::removeEntry(qlonglong id)

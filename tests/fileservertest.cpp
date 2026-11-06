@@ -146,6 +146,23 @@ int main(int argc, char *argv[])
         r->deleteLater();
     }
 
+    // forget() drops the registration entirely, served counters included
+    server.registerFile(QStringLiteral("17"), filePath);
+    server.resetServed(QStringLiteral("17"));
+    {
+        QNetworkReply *r = syncGet(nam, QUrl(base + "/pkg/17"));
+        CHECK(r->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt() == 200);
+        r->deleteLater();
+    }
+    CHECK(server.servedFor(QStringLiteral("17")) == payload.size());
+    server.forget(QStringLiteral("17"));
+    CHECK(server.servedFor(QStringLiteral("17")) == 0);
+    {
+        QNetworkReply *r = syncGet(nam, QUrl(base + "/pkg/17"));
+        CHECK(r->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt() == 404);
+        r->deleteLater();
+    }
+
     CHECK(server.pkgUrl(QStringLiteral("192.168.1.2"), QStringLiteral("17"))
           == QStringLiteral("http://192.168.1.2:9898/pkg/17"));
 

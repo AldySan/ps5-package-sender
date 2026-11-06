@@ -197,6 +197,7 @@ private:
     bool m_statusPollInFlight = false;
     int m_missedPolls = 0;
     int m_pollCount = 0;
+    int m_pollTicks = 0;
 
     bool m_autoCheckUpdates = true;
     bool m_checkingUpdate = false;

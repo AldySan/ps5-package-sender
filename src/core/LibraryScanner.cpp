@@ -3,6 +3,7 @@
 #include <QDirIterator>
 #include <QFileInfo>
 #include <QSqlDatabase>
+#include <QSqlError>
 #include <QSqlQuery>
 #include <QtConcurrent/QtConcurrentRun>
 
@@ -23,6 +24,7 @@ void LibraryScanner::scan(const QStringList &roots)
 
     (void)QtConcurrent::run([this, roots, known] {
         const QString connectionName = QStringLiteral("libraryscan");
+        QString openError;
         {
             QSqlDatabase db = QSqlDatabase::addDatabase(
                 QStringLiteral("QSQLITE"), connectionName);
@@ -72,9 +74,17 @@ void LibraryScanner::scan(const QStringList &roots)
                     while (it.hasNext())
                         processFile(it.nextFileInfo());
                 }
+            } else {
+                // A scan that cannot write anything must not masquerade as a
+                // normal, empty "complete" scan — surface the failure.
+                openError = db.lastError().text();
+                if (openError.isEmpty())
+                    openError = QStringLiteral("could not open the database");
             }
         }
         QSqlDatabase::removeDatabase(connectionName);
+        if (!openError.isEmpty())
+            emit failed(openError);
         emit finished();
         QMetaObject::invokeMethod(this, [this] { m_running = false; },
                                   Qt::QueuedConnection);

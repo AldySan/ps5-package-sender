@@ -1,4 +1,5 @@
 #include <QCoreApplication>
+#include <QDir>
 #include <QEventLoop>
 #include <QFile>
 #include <QTemporaryDir>
@@ -217,6 +218,23 @@ int main(int argc, char *argv[])
         model.removeEntry(all.constFirst().id);
         CHECK(db.libraryRows().size() == all.size() - 1);
     }
+
+    // a scan that cannot open its database is reported, not silently ignored
+#ifndef Q_OS_WIN
+    {
+        const QString dbPath = db.databasePath();
+        const QString parked = dbPath + QStringLiteral(".parked");
+        CHECK(QFile::rename(dbPath, parked));
+        CHECK(QDir().mkdir(dbPath)); // a directory cannot be a SQLite database
+        QString failure;
+        QObject::connect(&scanner, &ps5::LibraryScanner::failed, &scanner,
+                         [&failure](const QString &reason) { failure = reason; });
+        scanAndWait(scanner, db.scannedRoots());
+        CHECK(!failure.isEmpty());
+        CHECK(QDir().rmdir(dbPath));
+        CHECK(QFile::rename(parked, dbPath));
+    }
+#endif
 
     if (failures == 0) {
         std::fprintf(stderr, "all library tests passed\n");

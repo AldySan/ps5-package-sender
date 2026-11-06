@@ -25,12 +25,14 @@ public:
 
     bool start();
     int port() const { return m_port; }
+    bool isListening() const { return m_port != 0; }
 
     void setCatalogProvider(const CatalogProvider &provider);
     void setIconProvider(const IconProvider &provider);
 
     void registerFile(const QString &id, const QString &localPath);
     void revoke(const QString &id);
+    void forget(const QString &id);
     void resetServed(const QString &id);
     qint64 servedFor(const QString &id) const;
 

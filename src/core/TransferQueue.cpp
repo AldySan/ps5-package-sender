@@ -305,7 +305,7 @@ void TransferQueue::onReceiverOffline()
             // Another push may already be in flight; leave its marker alone.
             if (m_activePushId == item.id)
                 m_activePushId.clear();
-            m_server->revoke(item.serverId);
+            m_server->forget(item.serverId);
             m_model->updateItem(item);
             emit queueChanged();
         }
@@ -328,6 +328,10 @@ void TransferQueue::finishItem(QueueItem &item, TransferState state,
 {
     item.state = state;
     item.message = message;
+    // Terminal items never serve bytes again — drop the server registration
+    // (and its served counter) so they do not pile up for the whole session.
+    if (m_server && !item.serverId.isEmpty())
+        m_server->forget(item.serverId);
     m_model->updateItem(item);
     emit queueChanged();
     writeHistory(item, state == TransferState::Done || state == TransferState::Skipped,
@@ -418,14 +422,17 @@ void TransferQueue::cancelRow(const QString &id)
             QueueItem *it = mutableItem(id);
             if (!it || terminalState(it->state))
                 return;
-            m_activeCopyId.clear();
+            // Only release what is ours — another copy may already run.
+            if (m_activeCopyId == id)
+                m_activeCopyId.clear();
             finishItem(*it, TransferState::Cancelled, tr("cancelled (partial kept)"));
             pump();
         });
         return;
     }
     if (item->isCopy && item->state == TransferState::Pushing) {
-        m_activeCopyId.clear();
+        if (m_activeCopyId == id)
+            m_activeCopyId.clear();
         finishItem(*item, TransferState::Cancelled, tr("cancelled"));
         pump();
         return;
@@ -444,7 +451,8 @@ void TransferQueue::cancelRow(const QString &id)
             || item->state == TransferState::Pushing)) {
         m_server->revoke(item->serverId);
         finishItem(*item, TransferState::Cancelled, tr("cancelled"));
-        m_activePushId.clear();
+        if (m_activePushId == id)
+            m_activePushId.clear();
         pump();
     }
 }
@@ -456,7 +464,9 @@ void TransferQueue::pauseRow(const QString &id)
         return;
     m_receiver->pullPause(true, [this, id](bool, const QString &) {
         QueueItem *it = mutableItem(id);
-        if (!it)
+        // A late reply must not resurrect an item cancelled while the
+        // request was in flight.
+        if (!it || terminalState(it->state))
             return;
         it->state = TransferState::Paused;
         it->message = tr("paused on console");
@@ -472,7 +482,9 @@ void TransferQueue::resumeRow(const QString &id)
     if (item->state == TransferState::Paused) {
         m_receiver->pullPause(false, [this, id](bool, const QString &) {
             QueueItem *it = mutableItem(id);
-            if (!it)
+            // A late reply must not resurrect an item cancelled while the
+            // request was in flight.
+            if (!it || terminalState(it->state))
                 return;
             it->state = TransferState::Copying;
             it->message = tr("copying…");
