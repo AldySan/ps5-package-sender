@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.21)
 
 project(ps5-package-sender
-    VERSION 0.0.8
+    VERSION 0.0.9
     DESCRIPTION "PS5 package sender desktop client"
     LANGUAGES CXX)
 
