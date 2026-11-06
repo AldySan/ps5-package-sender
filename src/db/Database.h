@@ -50,7 +50,9 @@ public:
     void setSetting(const QString &key, const QString &value);
 
     qlonglong upsertLibraryEntry(const LibraryRow &row);
-    void removeLibraryEntries(const QList<qlonglong> &ids);
+    // Returns the number of ids that are still present after the call
+    // (0 = every entry was removed).
+    int removeLibraryEntries(const QList<qlonglong> &ids);
     QList<LibraryRow> libraryRows();
     QByteArray libraryIcon(qlonglong id);
 
@@ -62,7 +64,7 @@ public:
     void removeCustomScanPath(const QString &path);
     QStringList customScanPaths();
 
-    void addHistory(const HistoryRow &row);
+    bool addHistory(const HistoryRow &row);
     QList<HistoryRow> historyRows(int limit = 500);
     void clearHistory();
 

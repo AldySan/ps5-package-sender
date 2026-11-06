@@ -519,6 +519,54 @@ int main(int argc, char *argv[])
         CHECK(waitFor([&] { return console.pauseReplies >= 3; }, 5000));
         waitFor([&] { return false; }, 400);
         CHECK(queue.model()->itemAt(9).state == ps5::TransferState::Cancelled);
+
+        // --- enqueueing a file that no longer exists fails fast ---
+        // The scan metadata can outlive the file on disk; the row must fail
+        // in the queue with a clear message instead of pushing a dead URL
+        // and failing minutes later inside the console install.
+        QStringList notifyLog;
+        QObject::connect(&queue, &ps5::TransferQueue::notify, &queue,
+                         [&](const QString &msg) { notifyLog << msg; });
+        ps5::LibraryRow ghostRow = row;
+        ghostRow.title = "Ghost File";
+        ghostRow.path = sourceDir.filePath("never-existed.pkg");
+        const int callsBeforeGhost = console.installCalls;
+        queue.enqueue({ghostRow}, false);
+        CHECK(queue.model()->count() == 11);
+        CHECK(queue.model()->itemAt(10).state == ps5::TransferState::Failed);
+        CHECK(queue.model()->itemAt(10).message
+              == "file no longer exists on the PC");
+        // no request was wasted on the dead file
+        CHECK(console.installCalls == callsBeforeGhost);
+        bool ghostNotified = false;
+        for (const QString &msg : notifyLog)
+            ghostNotified |= msg.contains(QLatin1String("no longer exist"));
+        CHECK(ghostNotified);
+
+        // --- retrying after the file was deleted fails fast too ---
+        // The Done transition needs the status poll, which was paused for the
+        // pause/resume races above.
+        pollTimer.start();
+        const QString doomedPath = sourceDir.filePath("doomed.pkg");
+        {
+            QFile f(doomedPath);
+            f.open(QIODevice::WriteOnly);
+            CHECK(f.isOpen());
+            f.write(payload);
+            f.close();
+        }
+        ps5::LibraryRow doomedRow = row;
+        doomedRow.title = "Doomed File";
+        doomedRow.path = doomedPath;
+        queue.enqueue({doomedRow}, false);
+        CHECK(waitFor([&] {
+            return queue.model()->itemAt(11).state == ps5::TransferState::Done;
+        }, 15000));
+        CHECK(QFile::remove(doomedPath));
+        queue.retryRow(queue.model()->itemAt(11).id);
+        CHECK(queue.model()->itemAt(11).state == ps5::TransferState::Failed);
+        CHECK(queue.model()->itemAt(11).message
+              == "file no longer exists on the PC");
     }
 
     if (failures == 0) {

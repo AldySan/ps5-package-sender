@@ -48,6 +48,11 @@ Application::Application(QObject *parent)
 
     m_library = new LibraryModel(this);
     m_library->reload();
+    // A removal that the database refused must not pass silently — the
+    // per-card ✕ has no other feedback path.
+    connect(m_library, &LibraryModel::removeFailed, this, [this](int count) {
+        emit notify(tr("%1 item(s) could not be removed — try again").arg(count));
+    });
 
     m_scanner = new LibraryScanner(this);
     connect(m_scanner, &LibraryScanner::progress, this, [this](int found, int parsed) {
@@ -578,11 +583,14 @@ void Application::removeEntry(qlonglong id)
 
 void Application::removeSelected()
 {
+    const int selected = m_library->selectedCount();
     const int removed = m_library->removeSelected();
     emit notify(removed > 0
         ? tr("Removed %1 item(s) from the library — the files stay on disk")
               .arg(removed)
-        : tr("Nothing to remove — tick the entries first"));
+        : (selected > 0
+               ? tr("The removal did not go through — the entries are still there")
+               : tr("Nothing to remove — tick the entries first")));
 }
 
 void Application::startScan(const QStringList &roots)

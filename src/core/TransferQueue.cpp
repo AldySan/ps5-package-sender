@@ -25,6 +25,11 @@ bool terminalState(TransferState state)
     }
 }
 
+bool localFileMissing(const QueueItem &item)
+{
+    return !QFileInfo::exists(item.localPath);
+}
+
 } // namespace
 
 TransferQueue::TransferQueue(ReceiverClient *receiver, RangeFileServer *server,
@@ -46,6 +51,8 @@ void TransferQueue::setDestination(const QString &destination)
 
 void TransferQueue::enqueue(const QList<LibraryRow> &rows, bool copy)
 {
+    const int firstNew = m_items.size();
+    int missing = 0;
     for (const LibraryRow &row : rows) {
         QueueItem item;
         item.id = QUuid::createUuid().toString(QUuid::WithoutBraces);
@@ -58,10 +65,23 @@ void TransferQueue::enqueue(const QList<LibraryRow> &rows, bool copy)
         item.size = row.size;
         item.started = QDateTime::currentSecsSinceEpoch();
         item.hasIcon = row.hasIcon;
+        if (localFileMissing(item))
+            missing++;
         m_items.append(item);
     }
     m_model->setItems(m_items);
     emit queueChanged();
+    // A file deleted after it was scanned would otherwise push a dead URL to
+    // the console and fail minutes later with a cryptic install error — fail
+    // the row up front, in the queue, with a message that names the problem.
+    for (int i = firstNew; i < m_items.size(); i++) {
+        if (localFileMissing(m_items[i]))
+            finishItem(m_items[i], TransferState::Failed,
+                       tr("file no longer exists on the PC"));
+    }
+    if (missing > 0)
+        emit notify(tr("Skipped %1 item(s) — the file(s) no longer exist on the PC")
+                        .arg(missing));
     pump();
 }
 
@@ -98,6 +118,14 @@ void TransferQueue::pump()
 
 void TransferQueue::startInstall(QueueItem &item)
 {
+    if (localFileMissing(item)) {
+        // Covers the retry path: the file was deleted while the item sat in
+        // the queue (or after a failure).
+        finishItem(item, TransferState::Failed,
+                   tr("file no longer exists on the PC"));
+        pump();
+        return;
+    }
     item.state = TransferState::Pushing;
     item.message = tr("pushing to console…");
     item.sent = 0;
@@ -140,6 +168,12 @@ void TransferQueue::startInstall(QueueItem &item)
 
 void TransferQueue::startCopy(QueueItem &item)
 {
+    if (localFileMissing(item)) {
+        finishItem(item, TransferState::Failed,
+                   tr("file no longer exists on the PC"));
+        pump();
+        return;
+    }
     item.state = TransferState::Pushing;
     item.message = tr("checking console…");
     item.sent = 0;
@@ -349,7 +383,8 @@ void TransferQueue::writeHistory(const QueueItem &item, bool ok, const QString &
     row.size = item.size;
     row.ok = ok;
     row.message = message;
-    Database::instance().addHistory(row);
+    if (!Database::instance().addHistory(row))
+        emit notify(tr("Could not save this transfer to the history"));
     emit historyChanged();
 }
 

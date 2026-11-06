@@ -2,6 +2,8 @@
 #include <QDir>
 #include <QEventLoop>
 #include <QFile>
+#include <QSqlDatabase>
+#include <QSqlQuery>
 #include <QTemporaryDir>
 #include <QTimer>
 
@@ -233,6 +235,65 @@ int main(int argc, char *argv[])
         CHECK(!failure.isEmpty());
         CHECK(QDir().rmdir(dbPath));
         CHECK(QFile::rename(parked, dbPath));
+    }
+#endif
+
+    // a write the database refuses is detected and reported, not faked
+#ifndef Q_OS_WIN
+    {
+        const QList<ps5::LibraryRow> all = db.libraryRows();
+        CHECK(all.size() >= 1);
+        const qlonglong victim = all.constFirst().id;
+        const int rowsBefore = int(all.size());
+        int removeFailures = 0;
+        QObject::connect(&model, &ps5::LibraryModel::removeFailed, &model,
+                         [&removeFailures](int) { removeFailures++; });
+
+        const QString blockName = QStringLiteral("testblocker");
+        {
+            QSqlDatabase blocker = QSqlDatabase::addDatabase(
+                QStringLiteral("QSQLITE"), blockName);
+            blocker.setDatabaseName(db.databasePath());
+            CHECK(blocker.open());
+            QSqlQuery bq(blocker);
+            bq.exec(QStringLiteral("PRAGMA busy_timeout=100"));
+            CHECK(bq.exec(QStringLiteral("BEGIN EXCLUSIVE")));
+
+            // shrink the default connection's patience so the refusal is fast
+            QSqlQuery shrink;
+            shrink.exec(QStringLiteral("PRAGMA busy_timeout=100"));
+
+            CHECK(db.removeLibraryEntries({victim}) == 1);
+
+            // a brand-new row cannot be saved either — and says so
+            ps5::LibraryRow blocked;
+            blocked.path = dir.path() + QStringLiteral("/blocked.pkg");
+            blocked.title = QStringLiteral("Blocked Game");
+            blocked.format = QStringLiteral("pkg");
+            blocked.size = 1;
+            CHECK(ps5::Database::upsertLibraryEntryOn(
+                      QSqlDatabase::database(), blocked) == 0);
+
+            // the model surfaces the refused removal instead of pretending
+            model.setSelected(victim, true);
+            CHECK(model.removeSelected() == 0);
+            CHECK(removeFailures == 1);
+            CHECK(model.rowCount() == rowsBefore); // the row survived
+
+            CHECK(bq.exec(QStringLiteral("ROLLBACK")));
+        }
+        QSqlDatabase::removeDatabase(blockName);
+        {
+            QSqlQuery restore;
+            restore.exec(QStringLiteral("PRAGMA busy_timeout=5000"));
+        }
+        model.clearSelection();
+
+        // once the lock is gone the same removal goes through
+        CHECK(db.removeLibraryEntries({victim}) == 0);
+        model.reload();
+        CHECK(model.rowCount() == rowsBefore - 1);
+        CHECK(removeFailures == 1); // no spurious extra failure signals
     }
 #endif
 
