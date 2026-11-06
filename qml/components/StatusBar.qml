@@ -23,7 +23,10 @@ ToolBar {
 
             ToolTip.visible: ma.containsMouse
             ToolTip.text: !app.hasNetwork ? qsTr("No network")
-                         : app.receiverOnline ? qsTr("Receiver online")
+                         : app.receiverOnline
+                           ? (app.receiverBuild.length > 0
+                              ? qsTr("Receiver online — build %1").arg(app.receiverBuild)
+                              : qsTr("Receiver online"))
                          : qsTr("Receiver offline")
             MouseArea {
                 id: ma
@@ -216,7 +219,12 @@ ToolBar {
                         anchors.fill: parent
                         onClicked: {
                             app.useConsole(modelData.ip)
-                            consoleIpField.text = modelData.ip
+                            // Re-establish the text binding instead of writing
+                            // into the field: an imperative assignment would
+                            // detach it from app.psIp, so the field would stop
+                            // following later changes and editing it could
+                            // write a stale IP back into the settings.
+                            consoleIpField.text = Qt.binding(() => app.psIp)
                             consolePopup.close()
                         }
                     }

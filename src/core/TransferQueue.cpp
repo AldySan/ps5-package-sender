@@ -25,6 +25,11 @@ bool terminalState(TransferState state)
     }
 }
 
+bool localFileMissing(const QueueItem &item)
+{
+    return !QFileInfo::exists(item.localPath);
+}
+
 } // namespace
 
 TransferQueue::TransferQueue(ReceiverClient *receiver, RangeFileServer *server,
@@ -46,6 +51,8 @@ void TransferQueue::setDestination(const QString &destination)
 
 void TransferQueue::enqueue(const QList<LibraryRow> &rows, bool copy)
 {
+    const int firstNew = m_items.size();
+    int missing = 0;
     for (const LibraryRow &row : rows) {
         QueueItem item;
         item.id = QUuid::createUuid().toString(QUuid::WithoutBraces);
@@ -58,10 +65,23 @@ void TransferQueue::enqueue(const QList<LibraryRow> &rows, bool copy)
         item.size = row.size;
         item.started = QDateTime::currentSecsSinceEpoch();
         item.hasIcon = row.hasIcon;
+        if (localFileMissing(item))
+            missing++;
         m_items.append(item);
     }
     m_model->setItems(m_items);
     emit queueChanged();
+    // A file deleted after it was scanned would otherwise push a dead URL to
+    // the console and fail minutes later with a cryptic install error — fail
+    // the row up front, in the queue, with a message that names the problem.
+    for (int i = firstNew; i < m_items.size(); i++) {
+        if (localFileMissing(m_items[i]))
+            finishItem(m_items[i], TransferState::Failed,
+                       tr("file no longer exists on the PC"));
+    }
+    if (missing > 0)
+        emit notify(tr("Skipped %1 item(s) — the file(s) no longer exist on the PC")
+                        .arg(missing));
     pump();
 }
 
@@ -98,6 +118,14 @@ void TransferQueue::pump()
 
 void TransferQueue::startInstall(QueueItem &item)
 {
+    if (localFileMissing(item)) {
+        // Covers the retry path: the file was deleted while the item sat in
+        // the queue (or after a failure).
+        finishItem(item, TransferState::Failed,
+                   tr("file no longer exists on the PC"));
+        pump();
+        return;
+    }
     item.state = TransferState::Pushing;
     item.message = tr("pushing to console…");
     item.sent = 0;
@@ -140,6 +168,12 @@ void TransferQueue::startInstall(QueueItem &item)
 
 void TransferQueue::startCopy(QueueItem &item)
 {
+    if (localFileMissing(item)) {
+        finishItem(item, TransferState::Failed,
+                   tr("file no longer exists on the PC"));
+        pump();
+        return;
+    }
     item.state = TransferState::Pushing;
     item.message = tr("checking console…");
     item.sent = 0;
@@ -305,7 +339,7 @@ void TransferQueue::onReceiverOffline()
             // Another push may already be in flight; leave its marker alone.
             if (m_activePushId == item.id)
                 m_activePushId.clear();
-            m_server->revoke(item.serverId);
+            m_server->forget(item.serverId);
             m_model->updateItem(item);
             emit queueChanged();
         }
@@ -328,6 +362,10 @@ void TransferQueue::finishItem(QueueItem &item, TransferState state,
 {
     item.state = state;
     item.message = message;
+    // Terminal items never serve bytes again — drop the server registration
+    // (and its served counter) so they do not pile up for the whole session.
+    if (m_server && !item.serverId.isEmpty())
+        m_server->forget(item.serverId);
     m_model->updateItem(item);
     emit queueChanged();
     writeHistory(item, state == TransferState::Done || state == TransferState::Skipped,
@@ -345,7 +383,8 @@ void TransferQueue::writeHistory(const QueueItem &item, bool ok, const QString &
     row.size = item.size;
     row.ok = ok;
     row.message = message;
-    Database::instance().addHistory(row);
+    if (!Database::instance().addHistory(row))
+        emit notify(tr("Could not save this transfer to the history"));
     emit historyChanged();
 }
 
@@ -418,14 +457,17 @@ void TransferQueue::cancelRow(const QString &id)
             QueueItem *it = mutableItem(id);
             if (!it || terminalState(it->state))
                 return;
-            m_activeCopyId.clear();
+            // Only release what is ours — another copy may already run.
+            if (m_activeCopyId == id)
+                m_activeCopyId.clear();
             finishItem(*it, TransferState::Cancelled, tr("cancelled (partial kept)"));
             pump();
         });
         return;
     }
     if (item->isCopy && item->state == TransferState::Pushing) {
-        m_activeCopyId.clear();
+        if (m_activeCopyId == id)
+            m_activeCopyId.clear();
         finishItem(*item, TransferState::Cancelled, tr("cancelled"));
         pump();
         return;
@@ -444,7 +486,8 @@ void TransferQueue::cancelRow(const QString &id)
             || item->state == TransferState::Pushing)) {
         m_server->revoke(item->serverId);
         finishItem(*item, TransferState::Cancelled, tr("cancelled"));
-        m_activePushId.clear();
+        if (m_activePushId == id)
+            m_activePushId.clear();
         pump();
     }
 }
@@ -456,7 +499,9 @@ void TransferQueue::pauseRow(const QString &id)
         return;
     m_receiver->pullPause(true, [this, id](bool, const QString &) {
         QueueItem *it = mutableItem(id);
-        if (!it)
+        // A late reply must not resurrect an item cancelled while the
+        // request was in flight.
+        if (!it || terminalState(it->state))
             return;
         it->state = TransferState::Paused;
         it->message = tr("paused on console");
@@ -472,7 +517,9 @@ void TransferQueue::resumeRow(const QString &id)
     if (item->state == TransferState::Paused) {
         m_receiver->pullPause(false, [this, id](bool, const QString &) {
             QueueItem *it = mutableItem(id);
-            if (!it)
+            // A late reply must not resurrect an item cancelled while the
+            // request was in flight.
+            if (!it || terminalState(it->state))
                 return;
             it->state = TransferState::Copying;
             it->message = tr("copying…");
