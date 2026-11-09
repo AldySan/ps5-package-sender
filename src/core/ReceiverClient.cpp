@@ -119,6 +119,13 @@ void ReceiverClient::status(const StatusCallback &cb) const
         out.pullGot = qint64(o.value(QStringLiteral("pullGot")).toDouble());
         out.pullWant = qint64(o.value(QStringLiteral("pullWant")).toDouble());
         out.pullPaused = o.value(QStringLiteral("pullPaused")).toBool();
+        const QString lastUrl = o.value(QStringLiteral("lastUrl")).toString();
+        if (!lastUrl.isEmpty()) {
+            out.hasLast = true;
+            out.lastUrl = lastUrl;
+            out.lastOk = o.value(QStringLiteral("lastOk")).toBool();
+            out.lastErr = o.value(QStringLiteral("lastErr")).toString();
+        }
         cb(out);
     });
 }
