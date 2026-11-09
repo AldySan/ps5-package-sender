@@ -169,7 +169,18 @@ private:
         // package) but the install itself fails afterwards — the case the
         // receiver reports through the lastOk/lastErr status fields.
         const bool failInstall = name.contains(QLatin1String("INSTALLFAIL"));
-        const auto respond = [this, sock, fail, url, failInstall]() {
+        // "DOWNLOADFAIL": the console's downloader gives up part-way — it
+        // accepts the push, pulls only a slice of the package and the
+        // install dies with the console's own error while the PC's served
+        // counter never reaches the full size. "PARTIALOK": the console
+        // finishes the install having fetched fewer bytes than the PC saw
+        // served (a resumed download). Both leave the row counting
+        // download bytes with the outcome already reported.
+        const bool abortDownload = name.contains(QLatin1String("DOWNLOADFAIL"));
+        const bool partialFetch = abortDownload
+            || name.contains(QLatin1String("PARTIALOK"));
+        const auto respond = [this, sock, fail, url, failInstall, abortDownload,
+                              partialFetch]() {
             installReplies++;
             if (fail) {
                 m_installFailures++;
@@ -180,12 +191,12 @@ private:
 
             m_active++;
             m_busy = true;
-            download(url, [this, url, failInstall](const QByteArray &) {
+            download(url, [this, url, failInstall, abortDownload](const QByteArray &) {
                 m_active--;
                 m_busy = m_active > 0;
                 m_hasLast = true;
                 m_lastUrl = url;
-                if (failInstall) {
+                if (failInstall || abortDownload) {
                     m_lastOk = false;
                     m_lastErr = QStringLiteral(
                         "not enough free space on the console");
@@ -193,7 +204,7 @@ private:
                     m_lastOk = true;
                     m_lastErr.clear();
                 }
-            });
+            }, partialFetch);
         };
         if (delayNextInstall) {
             delayNextInstall = false;
@@ -245,11 +256,14 @@ private:
         return remote;
     }
 
-    void download(const QString &url, const std::function<void(const QByteArray &)> &done)
+    void download(const QString &url, const std::function<void(const QByteArray &)> &done,
+                  bool partial = false)
     {
         QNetworkRequest req((QUrl(url)));
         req.setAttribute(QNetworkRequest::RedirectPolicyAttribute,
                          QNetworkRequest::NoLessSafeRedirectPolicy);
+        if (partial)
+            req.setRawHeader("Range", "bytes=0-99");
         QNetworkReply *reply = m_nam.get(req);
         connect(reply, &QNetworkReply::finished, this, [this, reply, done] {
             const QByteArray bytes = reply->readAll();
@@ -616,6 +630,37 @@ int main(int argc, char *argv[])
                 && queue.model()->itemAt(13).state == ps5::TransferState::Done;
         }, 15000));
         CHECK(queue.model()->itemAt(13).message == "installed");
+
+        // --- a download the console abandons fails the row, not hangs ---
+        // The console accepts the push but its downloader gives up after
+        // a slice: the served counter never reaches the size, the
+        // receiver goes idle with lastOk=false for the exact URL this row
+        // pushed, and the console shows its own error. The row must end
+        // Failed with those words instead of sitting in
+        // "console is downloading…" forever.
+        ps5::LibraryRow dlFailRow = row;
+        dlFailRow.title = "DOWNLOADFAIL Once";
+        queue.enqueue({dlFailRow}, false);
+        CHECK(waitFor([&] {
+            return queue.model()->count() == 15
+                && queue.model()->itemAt(14).state == ps5::TransferState::Failed;
+        }, 15000));
+        CHECK(queue.model()->itemAt(14).message
+              == "console: not enough free space on the console");
+
+        // --- an install finished from a partial fetch is done ---
+        // The console completed the install having fetched fewer bytes
+        // than the PC saw served (a resumed download); the receiver's
+        // report says installed, so the row must settle as Done instead
+        // of hanging while it counts bytes that never come.
+        ps5::LibraryRow partialOkRow = row;
+        partialOkRow.title = "PARTIALOK Once";
+        queue.enqueue({partialOkRow}, false);
+        CHECK(waitFor([&] {
+            return queue.model()->count() == 16
+                && queue.model()->itemAt(15).state == ps5::TransferState::Done;
+        }, 15000));
+        CHECK(queue.model()->itemAt(15).message == "installed");
     }
 
     if (failures == 0) {
