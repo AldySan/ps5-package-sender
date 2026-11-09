@@ -269,6 +269,27 @@ void TransferQueue::onReceiverStatus(const ReceiverStatus &status)
             continue;
         }
 
+        // The console stopped while this row was still counting download
+        // bytes: the receiver is idle and its last-install report is about
+        // the exact URL this row pushed. Either the console's downloader
+        // gave up part-way (a space or network error, in its own words) or
+        // it finished the install from fewer bytes than we saw served (a
+        // resumed download). Both used to leave the row in "console is
+        // downloading…" forever with the answer one poll away.
+        if (!item.isCopy && item.state == TransferState::Downloading
+            && m_consoleIdle && status.hasLast
+            && status.lastUrl == item.pushedUrl) {
+            if (status.lastOk) {
+                finishItem(item, TransferState::Done, tr("installed"));
+            } else {
+                finishItem(item, TransferState::Failed,
+                           status.lastErr.isEmpty()
+                               ? tr("install failed on the console")
+                               : tr("console: %1").arg(status.lastErr));
+            }
+            continue;
+        }
+
         if (!item.isCopy && item.state == TransferState::Downloading
             && item.size > 0) {
             const qint64 served = m_server->servedFor(item.serverId);
