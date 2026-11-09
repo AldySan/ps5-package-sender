@@ -56,7 +56,10 @@ private:
             } else if (lastPath == "/api/status") {
                 reply = "{\"busy\":true,\"active\":1,\"pull\":true,"
                         "\"pullName\":\"game.exfat\",\"pullGot\":100,"
-                        "\"pullWant\":400,\"pullPaused\":false}";
+                        "\"pullWant\":400,\"pullPaused\":false,"
+                        "\"lastOk\":false,"
+                        "\"lastUrl\":\"http://192.0.2.10:9899/pkg/a\","
+                        "\"lastErr\":\"not enough free space\"}";
             } else if (lastPath == "/api/space") {
                 reply = "{\"free\":1000,\"total\":2000}";
             } else if (lastPath == "/api/version") {
@@ -139,6 +142,10 @@ int main(int argc, char *argv[])
         CHECK(st.pullGot == 100);
         CHECK(st.pullWant == 400);
         CHECK(!st.pullPaused);
+        CHECK(st.hasLast);
+        CHECK(!st.lastOk);
+        CHECK(st.lastUrl == QStringLiteral("http://192.0.2.10:9899/pkg/a"));
+        CHECK(st.lastErr == QStringLiteral("not enough free space"));
     }
 
     {
