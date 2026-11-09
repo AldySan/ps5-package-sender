@@ -137,6 +137,9 @@ void TransferQueue::startInstall(QueueItem &item)
     emit queueChanged();
 
     const QString pkgUrl = m_server->pkgUrl(m_pcIp, item.serverId);
+    // Remember the exact URL we pushed: when the console later reports the
+    // outcome of the install it ran, the queue matches it against this.
+    item.pushedUrl = pkgUrl;
     QString iconUrl;
     if (item.hasIcon)
         iconUrl = m_server->iconUrl(m_pcIp, item.serverId);
@@ -283,7 +286,21 @@ void TransferQueue::onReceiverStatus(const ReceiverStatus &status)
         }
 
         if (!item.isCopy && item.state == TransferState::Installing && m_consoleIdle) {
-            finishItem(item, TransferState::Done, tr("installed"));
+            // An idle console alone proved nothing: a failed install also
+            // ends idle, and both outcomes used to be reported as
+            // "installed". The receiver publishes the result of the last
+            // install it ran together with the exact URL it queued; when
+            // that one is ours, fail the row with the console's own words
+            // instead of claiming success.
+            if (status.hasLast && status.lastUrl == item.pushedUrl
+                && !status.lastOk) {
+                finishItem(item, TransferState::Failed,
+                           status.lastErr.isEmpty()
+                               ? tr("install failed on the console")
+                               : tr("console: %1").arg(status.lastErr));
+            } else {
+                finishItem(item, TransferState::Done, tr("installed"));
+            }
         }
     }
 }

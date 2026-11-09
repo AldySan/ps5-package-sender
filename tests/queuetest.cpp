@@ -79,6 +79,10 @@ public:
         st.pullGot = m_pullGot;
         st.pullWant = m_pullWant;
         st.pullPaused = false;
+        st.hasLast = m_hasLast;
+        st.lastOk = m_lastOk;
+        st.lastUrl = m_lastUrl;
+        st.lastErr = m_lastErr;
         return st;
     }
 
@@ -161,7 +165,11 @@ private:
                                 .toArray().at(0).toString();
         const QString name = body.value(QStringLiteral("name")).toString();
         const bool fail = name.contains(QLatin1String("FAILME")) && m_installFailures < 1;
-        const auto respond = [this, sock, fail, url]() {
+        // "INSTALLFAIL": the push is accepted (the console downloads the
+        // package) but the install itself fails afterwards — the case the
+        // receiver reports through the lastOk/lastErr status fields.
+        const bool failInstall = name.contains(QLatin1String("INSTALLFAIL"));
+        const auto respond = [this, sock, fail, url, failInstall]() {
             installReplies++;
             if (fail) {
                 m_installFailures++;
@@ -172,9 +180,19 @@ private:
 
             m_active++;
             m_busy = true;
-            download(url, [this](const QByteArray &) {
+            download(url, [this, url, failInstall](const QByteArray &) {
                 m_active--;
                 m_busy = m_active > 0;
+                m_hasLast = true;
+                m_lastUrl = url;
+                if (failInstall) {
+                    m_lastOk = false;
+                    m_lastErr = QStringLiteral(
+                        "not enough free space on the console");
+                } else {
+                    m_lastOk = true;
+                    m_lastErr.clear();
+                }
             });
         };
         if (delayNextInstall) {
@@ -269,6 +287,10 @@ private:
     qint64 m_pullWant = 0;
     bool m_cancelPull = false;
     int m_installFailures = 0;
+    bool m_hasLast = false;
+    bool m_lastOk = false;
+    QString m_lastUrl;
+    QString m_lastErr;
 };
 
 int main(int argc, char *argv[])
@@ -567,6 +589,33 @@ int main(int argc, char *argv[])
         CHECK(queue.model()->itemAt(11).state == ps5::TransferState::Failed);
         CHECK(queue.model()->itemAt(11).message
               == "file no longer exists on the PC");
+
+        // --- an install the console accepts but then fails is a failed row ---
+        // The push succeeds and the console downloads the whole package,
+        // but the install itself dies afterwards. The receiver reports
+        // that outcome (lastOk=false + the URL it ran + its own error
+        // text); the queue must match the URL it pushed and fail the row
+        // with the console's words instead of a false "installed".
+        ps5::LibraryRow consoleFailRow = row;
+        consoleFailRow.title = "INSTALLFAIL Once";
+        queue.enqueue({consoleFailRow}, false);
+        CHECK(waitFor([&] {
+            return queue.model()->count() == 13
+                && queue.model()->itemAt(12).state == ps5::TransferState::Failed;
+        }, 15000));
+        CHECK(queue.model()->itemAt(12).message
+              == "console: not enough free space on the console");
+
+        // A following successful install of a different row still reports
+        // "installed" — the failed last-result must not leak onto it.
+        ps5::LibraryRow okRow = row;
+        okRow.title = "Good After Bad";
+        queue.enqueue({okRow}, false);
+        CHECK(waitFor([&] {
+            return queue.model()->count() == 14
+                && queue.model()->itemAt(13).state == ps5::TransferState::Done;
+        }, 15000));
+        CHECK(queue.model()->itemAt(13).message == "installed");
     }
 
     if (failures == 0) {

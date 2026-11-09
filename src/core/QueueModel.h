@@ -37,6 +37,7 @@ struct QueueItem {
     qint64 sent = 0;
     qint64 started = 0;
     QString serverId;
+    QString pushedUrl;
     bool resumeOnRetry = false;
     bool pullWasActive = false;
     bool verifying = false;
