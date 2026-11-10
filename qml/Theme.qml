@@ -17,13 +17,17 @@ QtObject {
     readonly property color accentSoft: Qt.rgba(accent.r, accent.g, accent.b,
                                                     dark ? 0.1 : 0.14)
     readonly property color ok: dark ? "#3ecf8e" : "#177448"
-    readonly property color warn: dark ? "#f5b83d" : "#845a0b"
+    readonly property color warn: dark ? "#f5b83d" : "#7b530b"
     readonly property color error: dark ? "#f0566a" : "#c83346"
+    readonly property color warnSoft: Qt.rgba(warn.r, warn.g, warn.b,
+                                               dark ? 0.18 : 0.13)
     readonly property color chip: dark ? "#2b2e38" : "#e4e7ec"
     readonly property color toolTipBase: dark ? "#262932" : "#d5d8df"
     readonly property color toolTipText: dark ? "#e8eaf0" : "#1d2129"
     readonly property color toast: dark ? "#262932" : "#ffffff"
     readonly property color link: accentText
+    readonly property color scrim: dark ? Qt.rgba(0, 0, 0, 0.69)
+                                        : Qt.rgba(0, 0, 0, 0.35)
 
     readonly property int radius: 8
     readonly property int controlRadius: 6

@@ -153,7 +153,7 @@ ToolBar {
         }
 
         Overlay.modal: Rectangle {
-            color: Theme.dark ? Qt.rgba(0, 0, 0, 0.69) : Qt.rgba(0, 0, 0, 0.35)
+            color: Theme.scrim
         }
 
         contentItem: ColumnLayout {
