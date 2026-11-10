@@ -57,7 +57,7 @@ Page {
                         width: kindLabel.implicitWidth + 10
                         height: kindLabel.implicitHeight + 4
                         radius: 4
-                        color: modelData.kind === "copy" ? "#22f5b83d" : Theme.accentSoft
+                        color: modelData.kind === "copy" ? Theme.warnSoft : Theme.accentSoft
 
                         Label {
                             id: kindLabel
