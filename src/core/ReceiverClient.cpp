@@ -137,11 +137,15 @@ void ReceiverClient::space(const SpaceCallback &cb) const
         if (!r.ok)
             return cb(out);
         const QJsonDocument doc = QJsonDocument::fromJson(r.body.toUtf8());
-        if (!doc.isObject())
+        // A receiver that does not know the endpoint answers something else
+        // (an older ELF replies with plain text): without a "free" number it
+        // is not a space report, so stay offline rather than read free = 0.
+        const QJsonObject o = doc.object();
+        if (!doc.isObject() || !o.contains(QStringLiteral("free")))
             return cb(out);
         out.online = true;
-        out.free = qint64(doc.object().value(QStringLiteral("free")).toDouble());
-        out.total = qint64(doc.object().value(QStringLiteral("total")).toDouble());
+        out.free = qint64(o.value(QStringLiteral("free")).toDouble());
+        out.total = qint64(o.value(QStringLiteral("total")).toDouble());
         cb(out);
     });
 }

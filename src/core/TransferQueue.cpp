@@ -144,6 +144,26 @@ void TransferQueue::startInstall(QueueItem &item)
     if (item.hasIcon)
         iconUrl = m_server->iconUrl(m_pcIp, item.serverId);
 
+    // Pre-flight space check: an install keeps two copies of the package on
+    // the console at once — its own download plus the staged copy the
+    // receiver keeps when the console makes it re-serve the file locally —
+    // and both the console (0x80B21104) and the receiver's own gate refuse
+    // below that. The push still goes out (the console is the authority);
+    // this only says it now, not after a multi-gigabyte transfer.
+    m_receiver->space([this, id = item.id, size = item.size](const ReceiverSpace &space) {
+        QueueItem *it = mutableItem(id);
+        if (!it || terminalState(it->state))
+            return;
+        if (!space.online || space.free < 0 || size <= 0)
+            return;
+        if (space.free < 2 * size)
+            emit notify(tr("%1: only %2 free on the console — an install "
+                           "keeps two copies at once and needs about %3, "
+                           "so it may be refused")
+                            .arg(it->name, formatSize(space.free),
+                                 formatSize(2 * size)));
+    });
+
     m_receiver->install(pkgUrl, item.name, iconUrl,
                         [this, id = item.id](bool ok, const QString &reply) {
         QueueItem *it = mutableItem(id);

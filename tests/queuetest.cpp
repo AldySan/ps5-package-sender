@@ -94,6 +94,9 @@ public:
     int pauseReplyDelayMs = 600;
     int pauseCalls = 0;
     int pauseReplies = 0;
+    // What /api/space reports; the default is generous so ordinary flows
+    // never trip the pre-flight warning.
+    qint64 spaceFree = qint64(1) << 30;
 
 private:
     void incomingConnection(qintptr handle) override
@@ -123,6 +126,11 @@ private:
             handlePull(sock);
         } else if (m_lastPath.startsWith("/api/files/stat")) {
             handleStat(sock);
+        } else if (m_lastPath == "/api/space") {
+            replyJson(sock, QStringLiteral("{\"free\":%1,\"total\":%2}")
+                          .arg(QString::number(spaceFree),
+                               QString::number(qint64(2) << 30))
+                          .toLatin1());
         } else if (m_lastPath == "/api/pull/cancel") {
             m_cancelPull = true;
             replyJson(sock, "{\"ok\":true,\"cancelled\":true}");
@@ -661,6 +669,28 @@ int main(int argc, char *argv[])
                 && queue.model()->itemAt(15).state == ps5::TransferState::Done;
         }, 15000));
         CHECK(queue.model()->itemAt(15).message == "installed");
+
+        // --- a tight console warns before the transfer, not after ---
+        // The receiver reports less than twice the package free: the push
+        // still goes out (the console decides), but the user hears about
+        // the space now instead of after a full download and a refusal.
+        console.spaceFree = payload.size(); // < 2 * size → must warn
+        ps5::LibraryRow tightRow = row;
+        tightRow.title = "Tight Space";
+        queue.enqueue({tightRow}, false);
+        CHECK(waitFor([&] {
+            return queue.model()->count() == 17
+                && queue.model()->itemAt(16).state == ps5::TransferState::Done;
+        }, 15000));
+        bool spaceWarned = false;
+        for (int i = 0; i < 40 && !spaceWarned; i++) {
+            for (const QString &msg : notifyLog)
+                spaceWarned |= msg.contains(QLatin1String("free on the console"))
+                    && msg.contains(QLatin1String("Tight Space"));
+            if (!spaceWarned)
+                waitFor([&] { return false; }, 50);
+        }
+        CHECK(spaceWarned);
     }
 
     if (failures == 0) {
