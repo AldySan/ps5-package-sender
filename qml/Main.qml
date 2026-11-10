@@ -85,6 +85,7 @@ ApplicationWindow {
                     model: ["Library", "Queue", "History", "Settings"]
 
                     delegate: Button {
+                        id: tabBtn
                         readonly property bool active: pages.currentIndex === index
                         flat: true
                         text: qsTr(modelData)
@@ -96,7 +97,7 @@ ApplicationWindow {
                         background: Rectangle {
                             radius: Theme.radius
                             color: active ? Theme.accentSoft : "transparent"
-                            border.width: active ? 1 : 0
+                            border.width: active ? 1 : tabBtn.activeFocus ? 2 : 0
                             border.color: Theme.accent
                         }
 
@@ -110,6 +111,7 @@ ApplicationWindow {
                 }
 
                 Button {
+                    id: themeToggle
                     flat: true
                     implicitHeight: 32
                     font.pixelSize: 13
@@ -122,6 +124,8 @@ ApplicationWindow {
                     background: Rectangle {
                         radius: Theme.radius
                         color: Theme.chip
+                        border.width: themeToggle.activeFocus ? 2 : 0
+                        border.color: Theme.accent
                     }
 
                     contentItem: Label {

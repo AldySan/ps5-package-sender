@@ -80,22 +80,33 @@ Page {
                     spacing: 10
 
                     Repeater {
-                        model: ["#0070d1", "#6a48e8", "#c73e64", "#b45309", "#157f4e"]
+                        model: [
+                            { base: "#0070d1", name: qsTr("Blue") },
+                            { base: "#6a48e8", name: qsTr("Purple") },
+                            { base: "#c73e64", name: qsTr("Pink") },
+                            { base: "#b45309", name: qsTr("Amber") },
+                            { base: "#157f4e", name: qsTr("Green") }
+                        ]
 
-                        delegate: Rectangle {
-                            required property string modelData
-                            width: 26
-                            height: 26
-                            radius: 13
-                            color: modelData
-                            border.width: app.accentColor === modelData ? 2 : 1
-                            border.color: app.accentColor === modelData
-                                          ? Theme.text : Theme.border
+                        delegate: Button {
+                            id: swatch
+                            required property var modelData
+                            flat: true
+                            implicitWidth: 26
+                            implicitHeight: 26
+                            Accessible.name: modelData.name
+                            ToolTip.visible: hovered
+                            ToolTip.text: modelData.name
+                            onClicked: app.accentColor = modelData.base
 
-                            MouseArea {
-                                anchors.fill: parent
-                                cursorShape: Qt.PointingHandCursor
-                                onClicked: app.accentColor = parent.modelData
+                            background: Rectangle {
+                                radius: 13
+                                color: swatch.modelData.base
+                                border.width: app.accentColor === swatch.modelData.base ? 2
+                                              : swatch.activeFocus ? 2 : 1
+                                border.color: swatch.activeFocus ? Theme.accent
+                                              : app.accentColor === swatch.modelData.base
+                                              ? Theme.text : Theme.border
                             }
                         }
                     }
