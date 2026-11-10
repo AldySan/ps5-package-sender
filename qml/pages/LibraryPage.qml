@@ -178,7 +178,7 @@ Page {
             horizontalAlignment: Text.AlignHCenter
             verticalAlignment: Text.AlignVCenter
             text: app.scanning ? qsTr("Scanning…")
-                 : qsTr("No packages yet — add a folder or drop PKG/FPKG files here")
+                 : qsTr("No packages yet: add a folder or drop PKG/FPKG files here")
             color: Theme.textMuted
             font.pixelSize: 14
             wrapMode: Text.WordWrap
