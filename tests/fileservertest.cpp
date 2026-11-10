@@ -45,6 +45,18 @@ struct RawResponse {
     QByteArray body;
 };
 
+// Runs the application event loop for a moment. The server lives in this
+// same process and thread, so a raw waitForReadyRead() that blocks without
+// pumping events starves it: the connection is accepted by the kernel (the
+// connect succeeds) but no ServerConnection is ever created and no reply
+// ever comes back.
+static void pumpEvents(int ms)
+{
+    QEventLoop loop;
+    QTimer::singleShot(ms, &loop, &QEventLoop::quit);
+    loop.exec();
+}
+
 // Reads exactly one HTTP response over a raw socket. Every reply this server
 // sends carries Content-Length, so the body end is known without a close.
 static bool readOneResponse(QTcpSocket &sock, RawResponse *out)
@@ -60,7 +72,7 @@ static bool readOneResponse(QTcpSocket &sock, RawResponse *out)
             break;
         if (sock.state() != QAbstractSocket::ConnectedState)
             return false;
-        sock.waitForReadyRead(50);
+        pumpEvents(25); // feeds the in-process server, not just this socket
     }
     if (headEnd < 0)
         return false;
@@ -77,7 +89,7 @@ static bool readOneResponse(QTcpSocket &sock, RawResponse *out)
     while (buf.size() < headEnd + 4 + int(length) && timer.elapsed() < 15000) {
         if (sock.state() != QAbstractSocket::ConnectedState)
             return false;
-        sock.waitForReadyRead(50);
+        pumpEvents(25);
         buf += sock.readAll();
     }
     out->status = head.mid(9, 3).toInt();
@@ -92,7 +104,7 @@ static bool serverClosedConnection(QTcpSocket &sock)
     for (int i = 0; i < 20; i++) {
         if (sock.state() != QAbstractSocket::ConnectedState)
             return true;
-        sock.waitForReadyRead(25);
+        pumpEvents(25);
         if (!sock.readAll().isEmpty())
             return false; // unsolicited bytes: not a clean close
     }
