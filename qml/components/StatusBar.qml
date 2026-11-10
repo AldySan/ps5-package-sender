@@ -6,6 +6,8 @@ import PS5PackageSender
 ToolBar {
     id: root
     height: 56
+    readonly property bool roomy: root.Window.window
+                                  ? root.Window.window.width >= 1080 : false
     background: Rectangle { color: Theme.surface }
 
     RowLayout {
@@ -41,6 +43,8 @@ ToolBar {
                   : qsTr("no receiver")
             color: app.receiverOnline ? Theme.ok : Theme.error
             font.pixelSize: 12
+            elide: Text.ElideRight
+            Layout.maximumWidth: 110
         }
 
         Label {
@@ -48,14 +52,17 @@ ToolBar {
             text: app.freeSpaceText
             color: Theme.textMuted
             font.pixelSize: 12
+            elide: Text.ElideRight
+            Layout.maximumWidth: 150
         }
 
         Button {
             id: catalogButton
-            visible: app.shareEnabled && app.catalogUrl.length > 0
+            visible: app.shareEnabled && app.catalogUrl.length > 0 && root.roomy
             flat: true
             font.pixelSize: 11
             font.family: Theme.mono
+            Layout.maximumWidth: 250
             Accessible.description: qsTr("Copies the catalog address to the clipboard")
             ToolTip.visible: hovered
             ToolTip.text: qsTr("Copy the catalog address")
@@ -73,6 +80,7 @@ ToolBar {
                 color: Theme.accentText
                 font: catalogButton.font
                 verticalAlignment: Text.AlignVCenter
+                elide: Text.ElideMiddle
             }
         }
 
@@ -89,7 +97,7 @@ ToolBar {
 
         AppComboBox {
             id: pcBox
-            implicitWidth: 200
+            implicitWidth: 160
             model: app.pcAddressLabels
             visible: app.pcAddresses.length > 0
             currentIndex: app.pcIp ? app.pcAddresses.indexOf(app.pcIp) : -1
