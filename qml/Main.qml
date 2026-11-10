@@ -28,8 +28,8 @@ ApplicationWindow {
     palette.brightText: "#ffffff"
     palette.shadow: "#000000"
     palette.placeholderText: Theme.textMuted
-    palette.link: Theme.accent
-    palette.linkVisited: Theme.accent
+    palette.link: Theme.link
+    palette.linkVisited: Theme.link
     palette.toolTipBase: Theme.toolTipBase
     palette.toolTipText: Theme.toolTipText
 
@@ -102,7 +102,7 @@ ApplicationWindow {
 
                         contentItem: Label {
                             text: parent.text
-                            color: parent.active ? Theme.accent : Theme.textMuted
+                            color: parent.active ? Theme.accentText : Theme.textMuted
                             font: parent.font
                             verticalAlignment: Text.AlignVCenter
                         }
@@ -168,7 +168,7 @@ ApplicationWindow {
             Label {
                 anchors.centerIn: parent
                 text: qsTr("Drop PKG/FPKG files or folders")
-                color: Theme.accent
+                color: Theme.accentText
                 font.pixelSize: 16
             }
         }

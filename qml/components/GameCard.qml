@@ -70,7 +70,7 @@ Rectangle {
                     id: platformLabel
                     anchors.centerIn: parent
                     text: model.platform
-                    color: model.platform === "PS5" ? Theme.accent : Theme.warn
+                    color: model.platform === "PS5" ? Theme.accentText : Theme.warn
                     font.pixelSize: 10
                     font.bold: true
                 }

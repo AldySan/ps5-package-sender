@@ -26,7 +26,7 @@ Button {
         text: control.text
         font: control.font
         color: control.highlighted ? "#ffffff"
-             : control.checked ? Theme.accent
+             : control.checked ? Theme.accentText
              : Theme.text
         verticalAlignment: Text.AlignVCenter
         horizontalAlignment: Text.AlignHCenter

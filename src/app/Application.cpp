@@ -28,6 +28,23 @@ constexpr int OfflineAfterMissedPolls = 3;
 constexpr int SpaceRefreshPolls = 10;
 constexpr int AddressRefreshPolls = 10;
 
+QString migratedAccent(const QString &saved)
+{
+    // 0.0.9 shipped swatches that cannot meet WCAG AA as fills or text;
+    // each maps to its AA-safe successor in the same hue family.
+    if (saved == QStringLiteral("#2d7ff9"))
+        return QStringLiteral("#0070d1");
+    if (saved == QStringLiteral("#7c5cff"))
+        return QStringLiteral("#6a48e8");
+    if (saved == QStringLiteral("#e0517d"))
+        return QStringLiteral("#c73e64");
+    if (saved == QStringLiteral("#ee8034"))
+        return QStringLiteral("#b45309");
+    if (saved == QStringLiteral("#26a269"))
+        return QStringLiteral("#157f4e");
+    return saved;
+}
+
 } // namespace
 
 Application::Application(QObject *parent)
@@ -39,7 +56,12 @@ Application::Application(QObject *parent)
     m_theme = Database::instance().setting(QStringLiteral("theme"),
                                             QStringLiteral("dark"));
     m_accentColor = Database::instance().setting(QStringLiteral("accentColor"),
-                                                 QStringLiteral("#2d7ff9"));
+                                                 QStringLiteral("#0070d1"));
+    const QString migratedAccentColor = migratedAccent(m_accentColor);
+    if (migratedAccentColor != m_accentColor) {
+        m_accentColor = migratedAccentColor;
+        Database::instance().setSetting(QStringLiteral("accentColor"), m_accentColor);
+    }
     m_autoCheckUpdates = Database::instance().setting(
         QStringLiteral("autoCheckUpdates"), QStringLiteral("1"))
         != QStringLiteral("0");
