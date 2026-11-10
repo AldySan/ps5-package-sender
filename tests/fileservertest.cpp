@@ -174,10 +174,73 @@ int main(int argc, char *argv[])
         r->deleteLater();
     }
 
+    // Sony's downloader asks for whole 64 KiB blocks; the last block of a
+    // package whose size is not a multiple of 64 KiB arrives with an end
+    // past the file and must be clamped, not answered with a full body.
+    {
+        QNetworkReply *r = syncGet(nam, QUrl(base + "/pkg/17"), "bytes=294912-360447");
+        CHECK(r->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt() == 206);
+        CHECK(r->rawHeader("Content-Range") == "bytes 294912-299999/300000");
+        CHECK(r->readAll() == payload.mid(294912));
+        r->deleteLater();
+    }
+
+    {
+        QNetworkReply *r = syncGet(nam, QUrl(base + "/pkg/17"), "bytes=299990-400000");
+        CHECK(r->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt() == 206);
+        CHECK(r->rawHeader("Content-Range") == "bytes 299990-299999/300000");
+        CHECK(r->readAll() == payload.mid(299990));
+        r->deleteLater();
+    }
+
+    // suffix range: the last N bytes
     {
         QNetworkReply *r = syncGet(nam, QUrl(base + "/pkg/17"), "bytes=-5");
+        CHECK(r->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt() == 206);
+        CHECK(r->rawHeader("Content-Range") == "bytes 299995-299999/300000");
+        CHECK(r->readAll() == payload.right(5));
+        r->deleteLater();
+    }
+
+    // a suffix longer than the file is the whole file, still 206
+    {
+        QNetworkReply *r = syncGet(nam, QUrl(base + "/pkg/17"), "bytes=-999999");
+        CHECK(r->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt() == 206);
+        CHECK(r->rawHeader("Content-Range") == "bytes 0-299999/300000");
+        CHECK(r->readAll() == payload);
+        r->deleteLater();
+    }
+
+    // start past the end of the file: 416 that names the real size
+    {
+        QNetworkReply *r = syncGet(nam, QUrl(base + "/pkg/17"), "bytes=300000-");
+        CHECK(r->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt() == 416);
+        CHECK(r->rawHeader("Content-Range") == "bytes */300000");
+        CHECK(r->rawHeader("Accept-Ranges") == "bytes");
+        r->deleteLater();
+    }
+
+    // reversed range is unsatisfiable too
+    {
+        QNetworkReply *r = syncGet(nam, QUrl(base + "/pkg/17"), "bytes=100-50");
+        CHECK(r->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt() == 416);
+        r->deleteLater();
+    }
+
+    // multi-range is not supported: the whole file, as a plain 200
+    {
+        QNetworkReply *r = syncGet(nam, QUrl(base + "/pkg/17"), "bytes=0-9,20-29");
         CHECK(r->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt() == 200);
         CHECK(r->readAll() == payload);
+        r->deleteLater();
+    }
+
+    // the console's downloader only advances against a cacheable response:
+    // a stable validator pair on every package answer
+    {
+        QNetworkReply *r = syncGet(nam, QUrl(base + "/pkg/17"), "bytes=10-19");
+        CHECK(r->rawHeader("Last-Modified") == "Wed, 01 Jan 2025 00:00:00 GMT");
+        CHECK(r->rawHeader("Date").endsWith("GMT"));
         r->deleteLater();
     }
 
@@ -276,6 +339,26 @@ int main(int argc, char *argv[])
         CHECK(r2.status == 206);
         CHECK(r2.body == payload.left(1));
         CHECK(sock.state() == QAbstractSocket::ConnectedState);
+
+        // a 416 ends the exchange, not the connection: the next request on
+        // the same socket must still be served
+        sock.write("GET /pkg/17 HTTP/1.1\r\nHost: 127.0.0.1\r\n"
+                   "Range: bytes=400000-400009\r\n\r\n");
+        CHECK(sock.waitForBytesWritten(5000));
+        RawResponse r416;
+        CHECK(readOneResponse(sock, &r416));
+        CHECK(r416.status == 416);
+        CHECK(r416.headers.contains("Content-Range: bytes */300000"));
+        CHECK(sock.state() == QAbstractSocket::ConnectedState);
+
+        sock.write("GET /pkg/17 HTTP/1.1\r\nHost: 127.0.0.1\r\n"
+                   "Range: bytes=294912-360447\r\n\r\n");
+        CHECK(sock.waitForBytesWritten(5000));
+        RawResponse rclamp;
+        CHECK(readOneResponse(sock, &rclamp));
+        CHECK(rclamp.status == 206);
+        CHECK(rclamp.body == payload.mid(294912));
+        CHECK(rclamp.headers.contains("Last-Modified: Wed, 01 Jan 2025 00:00:00 GMT"));
 
         sock.write("GET /pkg/17 HTTP/1.1\r\nHost: 127.0.0.1\r\n"
                    "Connection: close\r\n\r\n");
