@@ -3,6 +3,7 @@
 #include <QFile>
 #include <QJsonDocument>
 #include <QTcpSocket>
+#include <QTimer>
 #include <QUrl>
 
 namespace ps5 {
@@ -10,6 +11,10 @@ namespace ps5 {
 namespace {
 
 constexpr qint64 WriteChunk = 512 * 1024;
+
+// A kept-alive connection that goes quiet (the console's downloader left,
+// the app was closed) must not sit in the connection set forever.
+constexpr int IdleTimeoutMs = 75000;
 
 const char *statusText(int status)
 {
@@ -43,6 +48,10 @@ public:
         connect(m_socket, &QTcpSocket::disconnected, this, &QObject::deleteLater);
         connect(m_socket, &QTcpSocket::bytesWritten, this,
                  &ServerConnection::continueWriting);
+        m_idle.setSingleShot(true);
+        m_idle.setInterval(IdleTimeoutMs);
+        connect(&m_idle, &QTimer::timeout, this, [this] { closeNow(); });
+        m_idle.start();
     }
 
 private:
@@ -50,20 +59,65 @@ private:
         QString method;
         QString path;
         QString rangeHeader;
+        bool keepAlive = false;
     };
+
+    // Sony's downloader (ShellCore) appends "?product=...&serverIpAddr=...&r=..."
+    // to every path it requests. Routing must use the bare path: treating the
+    // query as part of the package id turns every such request into a 404,
+    // which the console reads as "the PC stopped serving this package".
+    static QString barePath(const QByteArray &target)
+    {
+        QByteArray path = target;
+        for (const char cut : {'?', '#'}) {
+            const int at = path.indexOf(cut);
+            if (at >= 0)
+                path.truncate(at);
+        }
+        return QString::fromLatin1(QByteArray::fromPercentEncoding(path));
+    }
+
+    // HTTP/1.1 keeps the connection alive unless the client says otherwise;
+    // HTTP/1.0 closes it unless the client asks. Sony's downloader asks for
+    // keep-alive on every request.
+    static bool wantsKeepAlive(const QByteArray &version, const QList<QByteArray> &lines)
+    {
+        for (const QByteArray &line : lines) {
+            const int colon = line.indexOf(':');
+            if (colon > 0
+                && line.left(colon).compare(QByteArrayLiteral("connection"),
+                                            Qt::CaseInsensitive) == 0) {
+                const QString value = QString::fromLatin1(line.mid(colon + 1))
+                                          .trimmed().toLower();
+                if (value.contains(QLatin1String("close")))
+                    return false;
+                if (value.contains(QLatin1String("keep-alive")))
+                    return true;
+            }
+        }
+        return version == QByteArrayLiteral("HTTP/1.1");
+    }
 
     void readHeader()
     {
+        // A response body is still streaming on this connection: a request
+        // the client pipelined behind it stays buffered until finish()
+        // re-runs us — serving it now would reuse m_file mid-body.
+        if (m_remaining > 0)
+            return;
         m_buffer += m_socket->readAll();
         const int headerEnd = m_buffer.indexOf("\r\n\r\n");
         if (headerEnd < 0) {
-            if (m_buffer.size() > 16 * 1024)
+            if (m_buffer.size() > 16 * 1024) {
+                m_keepAlive = false; // a reply cannot help a client this broken
                 simpleReply(431, QByteArrayLiteral("request header too large"));
+            }
             return;
         }
 
         Request req;
         const QByteArray headerData = m_buffer.left(headerEnd);
+        m_buffer.remove(0, headerEnd + 4); // a pipelined next request stays
         QList<QByteArray> lines;
         int pos = 0;
         while (pos <= headerData.size()) {
@@ -78,19 +132,22 @@ private:
         }
         const QList<QByteArray> parts = lines.isEmpty()
             ? QList<QByteArray>() : lines.first().split(' ');
-        if (parts.size() < 2) {
+        if (parts.size() < 3) {
+            m_keepAlive = false;
             simpleReply(400, QByteArrayLiteral("bad request"));
             return;
         }
         req.method = QString::fromLatin1(parts.at(0));
-        req.path = QString::fromLatin1(QByteArray::fromPercentEncoding(parts.at(1)));
+        req.path = barePath(parts.at(1));
+        req.keepAlive = wantsKeepAlive(parts.at(2), lines);
         for (const QByteArray &line : lines) {
             const int colon = line.indexOf(':');
             if (colon > 0 && line.left(colon).compare(QByteArrayLiteral("range"),
                                                      Qt::CaseInsensitive) == 0)
                 req.rangeHeader = QString::fromLatin1(line.mid(colon + 1)).trimmed();
         }
-        m_buffer.clear();
+        m_keepAlive = req.keepAlive;
+        m_idle.start(); // this connection is active again
         route(req);
     }
 
@@ -212,20 +269,21 @@ private:
     {
         if (!m_file.isOpen())
             return;
+        m_idle.start(); // a body still moving is not idle
         while (m_remaining > 0 && m_socket->bytesToWrite() < 2 * WriteChunk) {
             if (!m_file.seek(m_offset)) {
-                finish();
+                closeNow(); // mid-body: the promised bytes will never come
                 return;
             }
             const qint64 want = qMin<qint64>(WriteChunk, m_remaining);
             const QByteArray chunk = m_file.read(want);
             if (chunk.isEmpty()) {
-                finish();
+                closeNow();
                 return;
             }
             const qint64 written = m_socket->write(chunk);
             if (written <= 0) {
-                finish();
+                closeNow();
                 return;
             }
             m_offset += written;
@@ -241,9 +299,29 @@ private:
     {
         if (m_file.isOpen())
             m_file.close();
-        m_socket->disconnectFromHost();
-        if (m_socket->state() == QAbstractSocket::UnconnectedState)
-            deleteLater();
+        m_id.clear();
+        m_offset = 0;
+        m_remaining = 0;
+        if (!m_keepAlive) {
+            m_idle.stop();
+            m_socket->disconnectFromHost();
+            if (m_socket->state() == QAbstractSocket::UnconnectedState)
+                deleteLater();
+            return;
+        }
+        // The client asked to reuse this connection: the next request is
+        // either already buffered (pipelining) or arrives with readyRead.
+        m_idle.start();
+        readHeader();
+    }
+
+    // Transport-level failure: the response was cut short or the request was
+    // unparseable, so the byte stream can no longer be trusted — close even
+    // on a keep-alive connection.
+    void closeNow()
+    {
+        m_keepAlive = false;
+        finish();
     }
 
     void writeHead(int status, qint64 length, const QByteArray &contentType,
@@ -254,7 +332,9 @@ private:
             + "\r\nContent-Length: " + QByteArray::number(length);
         if (!extra.isEmpty())
             head += "\r\n" + extra;
-        head += "\r\nConnection: close\r\n\r\n";
+        head += "\r\nConnection: ";
+        head += m_keepAlive ? "keep-alive" : "close";
+        head += "\r\n\r\n";
         m_socket->write(head);
     }
 
@@ -270,6 +350,8 @@ private:
     QByteArray m_buffer;
     QFile m_file;
     QString m_id;
+    QTimer m_idle;
+    bool m_keepAlive = false;
     qint64 m_offset = 0;
     qint64 m_remaining = 0;
 };
