@@ -27,7 +27,7 @@ ColumnLayout {
                 const idx = app.scanPaths.indexOf(app.destination)
                 return idx >= 0 ? idx : -1
             }
-            displayText: app.destination || qsTr("pick a scan path")
+            displayText: app.destination || qsTr("Pick a scan path")
             onActivated: index => app.destination = app.scanPaths[index]
 
             delegate: ItemDelegate {
