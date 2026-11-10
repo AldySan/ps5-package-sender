@@ -103,7 +103,7 @@ Page {
                         }
 
                         Label {
-                            text: modelData.ok ? qsTr("ok") : qsTr("failed")
+                            text: modelData.ok ? qsTr("Done") : qsTr("Failed")
                             color: modelData.ok ? Theme.ok : Theme.error
                             font.pixelSize: 11
                             Layout.alignment: Qt.AlignRight

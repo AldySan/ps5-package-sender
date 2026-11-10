@@ -86,7 +86,7 @@ ToolBar {
 
         AppButton {
             checkable: true
-            text: checked ? qsTr("Share on") : qsTr("Share to console")
+            text: checked ? qsTr("Stop sharing") : qsTr("Share to console")
             checked: app.shareEnabled
             onToggled: app.shareEnabled = checked
             ToolTip.visible: hovered
@@ -114,7 +114,7 @@ ToolBar {
         AppTextField {
             id: consoleIpField
             implicitWidth: 130
-            placeholderText: qsTr("console IP")
+            placeholderText: qsTr("Console IP")
             text: app.psIp
             selectByMouse: true
             onEditingFinished: app.psIp = text.trim()
