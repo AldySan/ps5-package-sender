@@ -100,7 +100,7 @@ Page {
 
                     background: Rectangle {
                         radius: 12
-                        color: active ? Theme.accentSoft : Theme.chip
+                        color: (active || filterChip.hovered) ? Theme.accentSoft : Theme.chip
                         border.width: active ? 1 : filterChip.activeFocus ? 2 : 0
                         border.color: Theme.accent
                     }

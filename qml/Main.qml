@@ -96,7 +96,7 @@ ApplicationWindow {
 
                         background: Rectangle {
                             radius: Theme.radius
-                            color: active ? Theme.accentSoft : "transparent"
+                            color: (active || tabBtn.hovered) ? Theme.accentSoft : "transparent"
                             border.width: active ? 1 : tabBtn.activeFocus ? 2 : 0
                             border.color: Theme.accent
                         }
@@ -123,7 +123,7 @@ ApplicationWindow {
 
                     background: Rectangle {
                         radius: Theme.radius
-                        color: Theme.chip
+                        color: themeToggle.hovered ? Theme.accentSoft : Theme.chip
                         border.width: themeToggle.activeFocus ? 2 : 0
                         border.color: Theme.accent
                     }
