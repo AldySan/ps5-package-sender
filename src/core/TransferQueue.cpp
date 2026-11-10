@@ -80,7 +80,7 @@ void TransferQueue::enqueue(const QList<LibraryRow> &rows, bool copy)
                        tr("file no longer exists on the PC"));
     }
     if (missing > 0)
-        emit notify(tr("Skipped %1 item(s) — the file(s) no longer exist on the PC")
+        emit notify(tr("Skipped %1 item(s): the file(s) no longer exist on the PC")
                         .arg(missing));
     pump();
 }
@@ -137,9 +137,32 @@ void TransferQueue::startInstall(QueueItem &item)
     emit queueChanged();
 
     const QString pkgUrl = m_server->pkgUrl(m_pcIp, item.serverId);
+    // Remember the exact URL we pushed: when the console later reports the
+    // outcome of the install it ran, the queue matches it against this.
+    item.pushedUrl = pkgUrl;
     QString iconUrl;
     if (item.hasIcon)
         iconUrl = m_server->iconUrl(m_pcIp, item.serverId);
+
+    // Pre-flight space check: an install keeps two copies of the package on
+    // the console at once — its own download plus the staged copy the
+    // receiver keeps when the console makes it re-serve the file locally —
+    // and both the console (0x80B21104) and the receiver's own gate refuse
+    // below that. The push still goes out (the console is the authority);
+    // this only says it now, not after a multi-gigabyte transfer.
+    m_receiver->space([this, id = item.id, size = item.size](const ReceiverSpace &space) {
+        QueueItem *it = mutableItem(id);
+        if (!it || terminalState(it->state))
+            return;
+        if (!space.online || space.free < 0 || size <= 0)
+            return;
+        if (space.free < 2 * size)
+            emit notify(tr("%1: only %2 free on the console. An install "
+                           "keeps two copies at once and needs about %3, "
+                           "so it may be refused")
+                            .arg(it->name, formatSize(space.free),
+                                 formatSize(2 * size)));
+    });
 
     m_receiver->install(pkgUrl, item.name, iconUrl,
                         [this, id = item.id](bool ok, const QString &reply) {
@@ -266,6 +289,27 @@ void TransferQueue::onReceiverStatus(const ReceiverStatus &status)
             continue;
         }
 
+        // The console stopped while this row was still counting download
+        // bytes: the receiver is idle and its last-install report is about
+        // the exact URL this row pushed. Either the console's downloader
+        // gave up part-way (a space or network error, in its own words) or
+        // it finished the install from fewer bytes than we saw served (a
+        // resumed download). Both used to leave the row in "console is
+        // downloading…" forever with the answer one poll away.
+        if (!item.isCopy && item.state == TransferState::Downloading
+            && m_consoleIdle && status.hasLast
+            && status.lastUrl == item.pushedUrl) {
+            if (status.lastOk) {
+                finishItem(item, TransferState::Done, tr("installed"));
+            } else {
+                finishItem(item, TransferState::Failed,
+                           status.lastErr.isEmpty()
+                               ? tr("install failed on the console")
+                               : tr("console: %1").arg(status.lastErr));
+            }
+            continue;
+        }
+
         if (!item.isCopy && item.state == TransferState::Downloading
             && item.size > 0) {
             const qint64 served = m_server->servedFor(item.serverId);
@@ -283,7 +327,21 @@ void TransferQueue::onReceiverStatus(const ReceiverStatus &status)
         }
 
         if (!item.isCopy && item.state == TransferState::Installing && m_consoleIdle) {
-            finishItem(item, TransferState::Done, tr("installed"));
+            // An idle console alone proved nothing: a failed install also
+            // ends idle, and both outcomes used to be reported as
+            // "installed". The receiver publishes the result of the last
+            // install it ran together with the exact URL it queued; when
+            // that one is ours, fail the row with the console's own words
+            // instead of claiming success.
+            if (status.hasLast && status.lastUrl == item.pushedUrl
+                && !status.lastOk) {
+                finishItem(item, TransferState::Failed,
+                           status.lastErr.isEmpty()
+                               ? tr("install failed on the console")
+                               : tr("console: %1").arg(status.lastErr));
+            } else {
+                finishItem(item, TransferState::Done, tr("installed"));
+            }
         }
     }
 }
@@ -334,7 +392,7 @@ void TransferQueue::onReceiverOffline()
             continue;
         }
         if (!item.isCopy && item.state == TransferState::Downloading) {
-            item.message = tr("console went offline — will resume");
+            item.message = tr("console went offline (will resume)");
             item.state = TransferState::Queued;
             // Another push may already be in flight; leave its marker alone.
             if (m_activePushId == item.id)

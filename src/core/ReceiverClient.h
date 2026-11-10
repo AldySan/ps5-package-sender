@@ -15,6 +15,14 @@ struct ReceiverStatus {
     qint64 pullGot = 0;
     qint64 pullWant = -1;
     bool pullPaused = false;
+    // Outcome of the last install the receiver ran, present once it has
+    // run one (empty lastUrl = nothing recorded yet). The queue matches
+    // lastUrl against the URL it pushed and fails the row with the
+    // console's own words when lastOk is false.
+    bool hasLast = false;
+    bool lastOk = false;
+    QString lastUrl;
+    QString lastErr;
 };
 
 struct ReceiverSpace {

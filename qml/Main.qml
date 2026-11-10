@@ -28,8 +28,8 @@ ApplicationWindow {
     palette.brightText: "#ffffff"
     palette.shadow: "#000000"
     palette.placeholderText: Theme.textMuted
-    palette.link: Theme.accent
-    palette.linkVisited: Theme.accent
+    palette.link: Theme.link
+    palette.linkVisited: Theme.link
     palette.toolTipBase: Theme.toolTipBase
     palette.toolTipText: Theme.toolTipText
 
@@ -85,6 +85,7 @@ ApplicationWindow {
                     model: ["Library", "Queue", "History", "Settings"]
 
                     delegate: Button {
+                        id: tabBtn
                         readonly property bool active: pages.currentIndex === index
                         flat: true
                         text: qsTr(modelData)
@@ -95,40 +96,26 @@ ApplicationWindow {
 
                         background: Rectangle {
                             radius: Theme.radius
-                            color: active ? Theme.accentSoft : "transparent"
-                            border.width: active ? 1 : 0
+                            color: (active || tabBtn.hovered) ? Theme.accentSoft : "transparent"
+                            border.width: active ? 1 : tabBtn.activeFocus ? 2 : 0
                             border.color: Theme.accent
                         }
 
                         contentItem: Label {
                             text: parent.text
-                            color: parent.active ? Theme.accent : Theme.textMuted
+                            color: parent.active ? Theme.accentText : Theme.textMuted
                             font: parent.font
                             verticalAlignment: Text.AlignVCenter
                         }
                     }
                 }
 
-                Button {
-                    flat: true
-                    implicitHeight: 32
-                    font.pixelSize: 13
-                    text: Theme.dark ? qsTr("☀") : qsTr("☾")
-                    ToolTip.visible: hovered
+                IconButton {
+                    id: themeToggle
+                    iconName: Theme.dark ? "sun" : "moon"
                     ToolTip.text: Theme.dark ? qsTr("Switch to light theme")
                                              : qsTr("Switch to dark theme")
                     onClicked: app.theme = Theme.dark ? "light" : "dark"
-
-                    background: Rectangle {
-                        radius: Theme.radius
-                        color: Theme.chip
-                    }
-
-                    contentItem: Label {
-                        text: parent.text
-                        color: Theme.text
-                        font: parent.font
-                    }
                 }
             }
         }
@@ -168,7 +155,7 @@ ApplicationWindow {
             Label {
                 anchors.centerIn: parent
                 text: qsTr("Drop PKG/FPKG files or folders")
-                color: Theme.accent
+                color: Theme.accentText
                 font.pixelSize: 16
             }
         }

@@ -28,6 +28,23 @@ constexpr int OfflineAfterMissedPolls = 3;
 constexpr int SpaceRefreshPolls = 10;
 constexpr int AddressRefreshPolls = 10;
 
+QString migratedAccent(const QString &saved)
+{
+    // 0.0.9 shipped swatches that cannot meet WCAG AA as fills or text;
+    // each maps to its AA-safe successor in the same hue family.
+    if (saved == QStringLiteral("#2d7ff9"))
+        return QStringLiteral("#0070d1");
+    if (saved == QStringLiteral("#7c5cff"))
+        return QStringLiteral("#6a48e8");
+    if (saved == QStringLiteral("#e0517d"))
+        return QStringLiteral("#c73e64");
+    if (saved == QStringLiteral("#ee8034"))
+        return QStringLiteral("#b45309");
+    if (saved == QStringLiteral("#26a269"))
+        return QStringLiteral("#157f4e");
+    return saved;
+}
+
 } // namespace
 
 Application::Application(QObject *parent)
@@ -39,7 +56,12 @@ Application::Application(QObject *parent)
     m_theme = Database::instance().setting(QStringLiteral("theme"),
                                             QStringLiteral("dark"));
     m_accentColor = Database::instance().setting(QStringLiteral("accentColor"),
-                                                 QStringLiteral("#2d7ff9"));
+                                                 QStringLiteral("#0070d1"));
+    const QString migratedAccentColor = migratedAccent(m_accentColor);
+    if (migratedAccentColor != m_accentColor) {
+        m_accentColor = migratedAccentColor;
+        Database::instance().setSetting(QStringLiteral("accentColor"), m_accentColor);
+    }
     m_autoCheckUpdates = Database::instance().setting(
         QStringLiteral("autoCheckUpdates"), QStringLiteral("1"))
         != QStringLiteral("0");
@@ -51,7 +73,7 @@ Application::Application(QObject *parent)
     // A removal that the database refused must not pass silently — the
     // per-card ✕ has no other feedback path.
     connect(m_library, &LibraryModel::removeFailed, this, [this](int count) {
-        emit notify(tr("%1 item(s) could not be removed — try again").arg(count));
+        emit notify(tr("%1 item(s) could not be removed, try again").arg(count));
     });
 
     m_scanner = new LibraryScanner(this);
@@ -123,7 +145,7 @@ Application::Application(QObject *parent)
     });
     QTimer::singleShot(0, this, [this, dbOk] {
         if (!dbOk)
-            emit notify(tr("Could not open the settings database — changes will not be saved"));
+            emit notify(tr("Could not open the settings database, changes will not be saved"));
         if (!m_server->start())
             emit notify(tr("Could not bind the PC file server port"));
     });
@@ -238,7 +260,7 @@ void Application::setShareEnabled(bool on)
         // The file server port never bound; sharing would advertise a dead
         // URL on the console. Snap the toggle back and say why.
         emit shareEnabledChanged();
-        emit notify(tr("Cannot share — the PC file server port is unavailable "
+        emit notify(tr("Cannot share: the PC file server port is unavailable "
                        "(another app may be using it)"));
         return;
     }
@@ -282,7 +304,7 @@ void Application::runUpdateCheck(bool manual)
             return;
         }
         if (result.available)
-            emit notify(tr("Version %1 is available — open Settings to download it")
+            emit notify(tr("Version %1 is available: open Settings to download it")
                             .arg(result.latestVersion));
         else if (manual)
             emit notify(tr("You are on the latest version (%1)").arg(m_version));
@@ -417,7 +439,7 @@ void Application::probeConsoles(const QStringList &ips)
     m_consoles.clear();
     emit consolesChanged();
     if (ips.isEmpty()) {
-        emit notify(tr("No console found — is the receiver ELF running?"));
+        emit notify(tr("No console found. Is the receiver ELF running?"));
         return;
     }
 
@@ -475,7 +497,7 @@ void Application::enqueueSelection(bool copy)
         return;
     }
     if (m_pcIp.isEmpty()) {
-        emit notify(tr("The PC address is not set yet — connect to a network "
+        emit notify(tr("The PC address is not set yet: connect to a network "
                        "and it is picked automatically"));
         return;
     }
@@ -560,7 +582,7 @@ void Application::addDroppedUrls(const QList<QUrl> &urls)
         }
     }
     if (skipped > 0)
-        emit notify(tr("Skipped %1 file(s) — only PKG, FPKG and disc images are supported")
+        emit notify(tr("Skipped %1 file(s): only PKG, FPKG and disc images are supported")
                         .arg(skipped));
     if (!roots.isEmpty() || !files.isEmpty())
         startScan(roots + files);
@@ -570,7 +592,7 @@ void Application::rescanAll()
 {
     const QStringList roots = Database::instance().scannedRoots();
     if (roots.isEmpty()) {
-        emit notify(tr("Nothing to rescan — add a folder or drop packages first"));
+        emit notify(tr("Nothing to rescan: add a folder or drop packages first"));
         return;
     }
     startScan(roots);
@@ -586,17 +608,17 @@ void Application::removeSelected()
     const int selected = m_library->selectedCount();
     const int removed = m_library->removeSelected();
     emit notify(removed > 0
-        ? tr("Removed %1 item(s) from the library — the files stay on disk")
+        ? tr("Removed %1 item(s) from the library. The files stay on disk.")
               .arg(removed)
         : (selected > 0
-               ? tr("The removal did not go through — the entries are still there")
-               : tr("Nothing to remove — tick the entries first")));
+               ? tr("The removal did not go through: the entries are still there")
+               : tr("Nothing to remove: tick the entries first")));
 }
 
 void Application::startScan(const QStringList &roots)
 {
     if (m_scanning) {
-        emit notify(tr("A scan is already running — try again once it finishes"));
+        emit notify(tr("A scan is already running: try again once it finishes"));
         return;
     }
     m_scanning = true;

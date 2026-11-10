@@ -53,6 +53,7 @@ Rectangle {
                 anchors.left: parent.left
                 anchors.margins: 4
                 checked: model.selected
+                Accessible.name: qsTr("Select %1").arg(model.title)
                 onClicked: app.libraryModel.toggleSelected(model.id)
             }
 
@@ -63,15 +64,15 @@ Rectangle {
                 width: platformLabel.implicitWidth + 12
                 height: platformLabel.implicitHeight + 6
                 radius: 4
-                color: model.platform === "PS5" ? "#332d7ff9" : "#33f5b83d"
+                color: model.platform === "PS5" ? Theme.accentSoft : Theme.warnSoft
                 visible: model.platform.length > 0
 
                 Label {
                     id: platformLabel
                     anchors.centerIn: parent
                     text: model.platform
-                    color: model.platform === "PS5" ? Theme.accent : Theme.warn
-                    font.pixelSize: 10
+                    color: model.platform === "PS5" ? Theme.accentText : Theme.warn
+                    font.pixelSize: 11
                     font.bold: true
                 }
             }
@@ -117,7 +118,7 @@ Rectangle {
                     anchors.centerIn: parent
                     text: model.format.toUpperCase()
                     color: Theme.textMuted
-                    font.pixelSize: 10
+                    font.pixelSize: 11
                     font.bold: true
                 }
             }
@@ -134,26 +135,19 @@ Rectangle {
 
             Item { Layout.fillWidth: true }
 
-            AppButton {
+            IconButton {
                 visible: model.familyKey.length > 0
-                flat: true
-                text: "🔗"
-                implicitHeight: 22
-                font.pixelSize: 11
-                onClicked: app.libraryModel.familyFilter = model.familyKey
-                ToolTip.visible: hovered
+                iconName: "link"
+                iconSize: 14
                 ToolTip.text: qsTr("Show this title family")
+                onClicked: app.libraryModel.familyFilter = model.familyKey
             }
 
-            AppButton {
-                flat: true
-                text: qsTr("✕")
-                implicitWidth: 30
-                implicitHeight: 22
-                font.pixelSize: 11
-                onClicked: app.removeEntry(model.id)
-                ToolTip.visible: hovered
+            IconButton {
+                iconName: "close"
+                iconSize: 14
                 ToolTip.text: qsTr("Remove from the library (the file stays on disk)")
+                onClicked: app.removeEntry(model.id)
             }
         }
     }

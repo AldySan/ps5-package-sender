@@ -80,22 +80,33 @@ Page {
                     spacing: 10
 
                     Repeater {
-                        model: ["#2d7ff9", "#7c5cff", "#e0517d", "#ee8034", "#26a269"]
+                        model: [
+                            { base: "#0070d1", name: qsTr("Blue") },
+                            { base: "#6a48e8", name: qsTr("Purple") },
+                            { base: "#c73e64", name: qsTr("Pink") },
+                            { base: "#b45309", name: qsTr("Amber") },
+                            { base: "#157f4e", name: qsTr("Green") }
+                        ]
 
-                        delegate: Rectangle {
-                            required property string modelData
-                            width: 26
-                            height: 26
-                            radius: 13
-                            color: modelData
-                            border.width: app.accentColor === modelData ? 2 : 1
-                            border.color: app.accentColor === modelData
-                                          ? Theme.text : Theme.border
+                        delegate: Button {
+                            id: swatch
+                            required property var modelData
+                            flat: true
+                            implicitWidth: 26
+                            implicitHeight: 26
+                            Accessible.name: modelData.name
+                            ToolTip.visible: hovered
+                            ToolTip.text: modelData.name
+                            onClicked: app.accentColor = modelData.base
 
-                            MouseArea {
-                                anchors.fill: parent
-                                cursorShape: Qt.PointingHandCursor
-                                onClicked: app.accentColor = parent.modelData
+                            background: Rectangle {
+                                radius: 13
+                                color: swatch.modelData.base
+                                border.width: app.accentColor === swatch.modelData.base ? 2
+                                              : swatch.activeFocus ? 2 : 1
+                                border.color: swatch.activeFocus ? Theme.accent
+                                              : app.accentColor === swatch.modelData.base
+                                              ? Theme.text : Theme.border
                             }
                         }
                     }
@@ -245,7 +256,7 @@ Page {
                 Label {
                     visible: !app.checkingUpdate && app.latestVersion.length > 0
                              && !app.updateAvailable
-                    text: qsTr("Up to date — %1 is the latest release").arg(app.latestVersion)
+                    text: qsTr("Up to date: %1 is the latest release").arg(app.latestVersion)
                     color: Theme.textMuted
                     font.pixelSize: 13
                 }
@@ -259,7 +270,7 @@ Page {
             }
 
             Label {
-                text: qsTr("PS5 Package Sender %1 — a small desktop tool that moves "
+                text: qsTr("PS5 Package Sender %1, a small desktop tool that moves "
                     + "games, updates and extra content onto a jailbroken "
                     + "PlayStation 5 over your home network. It is portable: "
                     + "unzip and run, no installer, nothing left behind.")
@@ -272,7 +283,7 @@ Page {
 
             Text {
                 text: qsTr("The console side needs the companion receiver program "
-                    + "(ps5-receiver.elf) running in the background — grab it "
+                    + "(ps5-receiver.elf) running in the background: grab it "
                     + "from the releases of the receiver project. Both sides "
                     + "are open source:<br>"
                     + "• this app: <a href=\"https://github.com/AldySan/ps5-package-sender\">ps5-package-sender</a><br>"
