@@ -63,7 +63,7 @@ Rectangle {
                             anchors.centerIn: parent
                             text: model.isCopy ? qsTr("COPY") : qsTr("INSTALL")
                             color: model.isCopy ? Theme.warn : Theme.accentText
-                            font.pixelSize: 9
+                            font.pixelSize: 11
                             font.bold: true
                         }
                     }
@@ -151,6 +151,8 @@ Rectangle {
                         flat: true
                         implicitWidth: 30
                         enabled: model.state === 0
+                        ToolTip.visible: hovered
+                        ToolTip.text: qsTr("Move up")
                         onClicked: app.queue.moveRow(model.id, -1)
                     }
 
@@ -159,6 +161,8 @@ Rectangle {
                         flat: true
                         implicitWidth: 30
                         enabled: model.state === 0
+                        ToolTip.visible: hovered
+                        ToolTip.text: qsTr("Move down")
                         onClicked: app.queue.moveRow(model.id, 1)
                     }
                 }

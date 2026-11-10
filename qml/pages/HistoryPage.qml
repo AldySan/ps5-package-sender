@@ -64,7 +64,7 @@ Page {
                             anchors.centerIn: parent
                             text: modelData.kind === "copy" ? qsTr("COPY") : qsTr("INSTALL")
                             color: modelData.kind === "copy" ? Theme.warn : Theme.accentText
-                            font.pixelSize: 9
+                            font.pixelSize: 11
                             font.bold: true
                         }
                     }
@@ -85,7 +85,7 @@ Page {
                             visible: modelData.remotePath.length > 0
                             text: modelData.remotePath
                             color: Theme.textMuted
-                            font.pixelSize: 10
+                            font.pixelSize: 11
                             font.family: Theme.mono
                             elide: Text.ElideMiddle
                             Layout.fillWidth: true

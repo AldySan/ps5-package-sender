@@ -167,6 +167,8 @@ ToolBar {
                     implicitWidth: 30
                     font.pixelSize: 12
                     text: qsTr("✕")
+                    ToolTip.visible: hovered
+                    ToolTip.text: qsTr("Close")
                     onClicked: {
                         if (app.discovering)
                             app.cancelDiscovery()
