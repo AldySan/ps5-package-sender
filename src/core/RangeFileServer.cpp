@@ -1,7 +1,9 @@
 #include "RangeFileServer.h"
 
+#include <QDateTime>
 #include <QFile>
 #include <QJsonDocument>
+#include <QLocale>
 #include <QTcpSocket>
 #include <QTimer>
 #include <QUrl>
@@ -16,6 +18,11 @@ constexpr qint64 WriteChunk = 512 * 1024;
 // the app was closed) must not sit in the connection set forever.
 constexpr int IdleTimeoutMs = 75000;
 
+// Fixed on purpose: a validator that changes between two range fetches of
+// the same install reads as the file being replaced, and a downloader that
+// caches only against a stable validator can stall mid-package.
+const char PkgLastModified[] = "Wed, 01 Jan 2025 00:00:00 GMT";
+
 const char *statusText(int status)
 {
     switch (status) {
@@ -27,11 +34,69 @@ const char *statusText(int status)
         return "Not Found";
     case 405:
         return "Method Not Allowed";
+    case 416:
+        return "Range Not Satisfiable";
     case 431:
         return "Request Header Fields Too Large";
     default:
         return "Bad Request";
     }
+}
+
+QByteArray httpDateNow()
+{
+    return QLocale::c()
+        .toString(QDateTime::currentDateTimeUtc(),
+                  QStringLiteral("ddd, dd MMM yyyy HH:mm:ss"))
+        .toLatin1() + " GMT";
+}
+
+enum RangeParse { RangeWholeBody, RangePartial, RangeUnsatisfiable };
+
+// Sony's downloader asks for whole 64 KiB blocks, so the last block of a
+// package whose size is not a multiple of 64 KiB arrives with an end past
+// the file. That range must be clamped and answered 206; a full-body 200
+// (or a bare 416) stalls the console's fetch loop mid-download.
+RangeParse parseRange(const QString &header, qint64 size, qint64 *from,
+                      qint64 *to)
+{
+    *from = 0;
+    *to = size - 1;
+    if (!header.startsWith(QStringLiteral("bytes="), Qt::CaseInsensitive))
+        return RangeWholeBody;
+    const QString spec = header.mid(6).trimmed();
+    if (spec.isEmpty() || spec.contains(QLatin1Char(',')))
+        return RangeWholeBody;
+    const int dash = spec.indexOf(QLatin1Char('-'));
+    if (dash < 0)
+        return RangeWholeBody;
+    const QString first = spec.left(dash);
+    const QString last = spec.mid(dash + 1);
+    bool ok = false;
+    if (first.isEmpty()) {
+        const qint64 n = last.toLongLong(&ok);
+        if (!ok || n < 0)
+            return RangeWholeBody;
+        if (n == 0 || size <= 0)
+            return RangeUnsatisfiable;
+        *from = size - qMin<qint64>(n, size);
+        *to = size - 1;
+        return RangePartial;
+    }
+    const qint64 a = first.toLongLong(&ok);
+    if (!ok || a < 0)
+        return RangeWholeBody;
+    qint64 b = size - 1;
+    if (!last.isEmpty()) {
+        b = last.toLongLong(&ok);
+        if (!ok || b < 0)
+            return RangeWholeBody;
+    }
+    if (a >= size || b < a)
+        return RangeUnsatisfiable;
+    *from = a;
+    *to = qMin<qint64>(b, size - 1);
+    return RangePartial;
 }
 
 } // namespace
@@ -228,32 +293,27 @@ private:
         const qint64 size = m_file.size();
 
         qint64 from = 0;
-        qint64 to = size - 1;
-        bool partial = false;
-        if (req.rangeHeader.startsWith(QStringLiteral("bytes="))) {
-            const QString spec = req.rangeHeader.mid(6);
-            const int dash = spec.indexOf('-');
-            if (dash > 0) {
-                bool okFrom = false;
-                const qint64 a = spec.left(dash).toLongLong(&okFrom);
-                const QString endPart = spec.mid(dash + 1).split(',').first();
-                qint64 b = size - 1;
-                bool okTo = endPart.isEmpty();
-                if (!endPart.isEmpty())
-                    b = endPart.toLongLong(&okTo);
-                if (okFrom && a >= 0 && a < size && okTo && b >= a && b < size) {
-                    from = a;
-                    to = b;
-                    partial = true;
-                }
-            }
+        qint64 to = 0;
+        const RangeParse rp = parseRange(req.rangeHeader, size, &from, &to);
+        if (rp == RangeUnsatisfiable) {
+            // Content-Range: bytes */<size> is required so the client can
+            // re-derive the real size and retry; a bare 416 dead-ends it.
+            writeHead(416, 0, "application/octet-stream",
+                      QByteArrayLiteral("Content-Range: bytes */") +
+                          QByteArray::number(size) +
+                          QByteArrayLiteral("\r\nAccept-Ranges: bytes"));
+            finish();
+            return;
         }
+        const bool partial = rp == RangePartial;
 
         const qint64 length = qMax<qint64>(0, to - from + 1);
         QByteArray extra = "Accept-Ranges: bytes";
+        extra += "\r\nDate: " + httpDateNow();
+        extra += QByteArrayLiteral("\r\nLast-Modified: ") + PkgLastModified;
         if (partial) {
-            extra += "\r\nContent-Range: bytes " + QByteArray::number(from) + "-"
-                + QByteArray::number(to) + "/" + QByteArray::number(size);
+            extra += "\r\nContent-Range: bytes " + QByteArray::number(from) +
+                "-" + QByteArray::number(to) + "/" + QByteArray::number(size);
         }
         writeHead(partial ? 206 : 200, length, "application/octet-stream", extra);
         if (req.method == QLatin1String("HEAD")) {
