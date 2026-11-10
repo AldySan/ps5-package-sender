@@ -45,7 +45,7 @@ ColumnLayout {
 
                 contentItem: Label {
                     text: pathEntry.modelData
-                    color: pathEntry.highlighted ? Theme.accent : Theme.text
+                    color: pathEntry.highlighted ? Theme.accentText : Theme.text
                     font.pixelSize: 12
                     font.family: Theme.mono
                     elide: Text.ElideMiddle

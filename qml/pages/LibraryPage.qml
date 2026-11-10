@@ -106,7 +106,7 @@ Page {
 
                     contentItem: Label {
                         text: parent.text
-                        color: parent.active ? Theme.accent : Theme.textMuted
+                        color: parent.active ? Theme.accentText : Theme.textMuted
                         font: parent.font
                     }
                 }

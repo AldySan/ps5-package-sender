@@ -40,7 +40,7 @@ ComboBox {
 
         contentItem: Label {
             text: entry.modelData
-            color: entry.highlighted ? Theme.accent : Theme.text
+            color: entry.highlighted ? Theme.accentText : Theme.text
             font.pixelSize: 12
             verticalAlignment: Text.AlignVCenter
             elide: Text.ElideMiddle

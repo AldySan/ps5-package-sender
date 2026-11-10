@@ -12,7 +12,7 @@ Rectangle {
         : model.state === 8 || model.state === 9 ? Theme.error
         : model.state === 5 ? Theme.warn
         : model.state === 7 ? Theme.textMuted
-        : Theme.accent
+        : Theme.accentText
 
     color: Theme.surface
     radius: Theme.radius
@@ -62,7 +62,7 @@ Rectangle {
                             id: kindLabel
                             anchors.centerIn: parent
                             text: model.isCopy ? qsTr("COPY") : qsTr("INSTALL")
-                            color: model.isCopy ? Theme.warn : Theme.accent
+                            color: model.isCopy ? Theme.warn : Theme.accentText
                             font.pixelSize: 9
                             font.bold: true
                         }

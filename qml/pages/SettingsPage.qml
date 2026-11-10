@@ -80,7 +80,7 @@ Page {
                     spacing: 10
 
                     Repeater {
-                        model: ["#2d7ff9", "#7c5cff", "#e0517d", "#ee8034", "#26a269"]
+                        model: ["#0070d1", "#6a48e8", "#c73e64", "#b45309", "#157f4e"]
 
                         delegate: Rectangle {
                             required property string modelData

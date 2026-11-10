@@ -53,7 +53,7 @@ ToolBar {
         Label {
             visible: app.shareEnabled && app.catalogUrl.length > 0
             text: app.catalogUrl
-            color: Theme.accent
+            color: Theme.accentText
             font.pixelSize: 11
             font.family: Theme.mono
 

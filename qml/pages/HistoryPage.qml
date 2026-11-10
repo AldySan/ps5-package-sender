@@ -63,7 +63,7 @@ Page {
                             id: kindLabel
                             anchors.centerIn: parent
                             text: modelData.kind === "copy" ? qsTr("COPY") : qsTr("INSTALL")
-                            color: modelData.kind === "copy" ? Theme.warn : Theme.accent
+                            color: modelData.kind === "copy" ? Theme.warn : Theme.accentText
                             font.pixelSize: 9
                             font.bold: true
                         }
