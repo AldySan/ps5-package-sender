@@ -79,6 +79,10 @@ public:
         st.pullGot = m_pullGot;
         st.pullWant = m_pullWant;
         st.pullPaused = false;
+        st.hasLast = m_hasLast;
+        st.lastOk = m_lastOk;
+        st.lastUrl = m_lastUrl;
+        st.lastErr = m_lastErr;
         return st;
     }
 
@@ -90,6 +94,9 @@ public:
     int pauseReplyDelayMs = 600;
     int pauseCalls = 0;
     int pauseReplies = 0;
+    // What /api/space reports; the default is generous so ordinary flows
+    // never trip the pre-flight warning.
+    qint64 spaceFree = qint64(1) << 30;
 
 private:
     void incomingConnection(qintptr handle) override
@@ -119,6 +126,11 @@ private:
             handlePull(sock);
         } else if (m_lastPath.startsWith("/api/files/stat")) {
             handleStat(sock);
+        } else if (m_lastPath == "/api/space") {
+            replyJson(sock, QStringLiteral("{\"free\":%1,\"total\":%2}")
+                          .arg(QString::number(spaceFree),
+                               QString::number(qint64(2) << 30))
+                          .toLatin1());
         } else if (m_lastPath == "/api/pull/cancel") {
             m_cancelPull = true;
             replyJson(sock, "{\"ok\":true,\"cancelled\":true}");
@@ -161,7 +173,22 @@ private:
                                 .toArray().at(0).toString();
         const QString name = body.value(QStringLiteral("name")).toString();
         const bool fail = name.contains(QLatin1String("FAILME")) && m_installFailures < 1;
-        const auto respond = [this, sock, fail, url]() {
+        // "INSTALLFAIL": the push is accepted (the console downloads the
+        // package) but the install itself fails afterwards — the case the
+        // receiver reports through the lastOk/lastErr status fields.
+        const bool failInstall = name.contains(QLatin1String("INSTALLFAIL"));
+        // "DOWNLOADFAIL": the console's downloader gives up part-way — it
+        // accepts the push, pulls only a slice of the package and the
+        // install dies with the console's own error while the PC's served
+        // counter never reaches the full size. "PARTIALOK": the console
+        // finishes the install having fetched fewer bytes than the PC saw
+        // served (a resumed download). Both leave the row counting
+        // download bytes with the outcome already reported.
+        const bool abortDownload = name.contains(QLatin1String("DOWNLOADFAIL"));
+        const bool partialFetch = abortDownload
+            || name.contains(QLatin1String("PARTIALOK"));
+        const auto respond = [this, sock, fail, url, failInstall, abortDownload,
+                              partialFetch]() {
             installReplies++;
             if (fail) {
                 m_installFailures++;
@@ -172,10 +199,20 @@ private:
 
             m_active++;
             m_busy = true;
-            download(url, [this](const QByteArray &) {
+            download(url, [this, url, failInstall, abortDownload](const QByteArray &) {
                 m_active--;
                 m_busy = m_active > 0;
-            });
+                m_hasLast = true;
+                m_lastUrl = url;
+                if (failInstall || abortDownload) {
+                    m_lastOk = false;
+                    m_lastErr = QStringLiteral(
+                        "not enough free space on the console");
+                } else {
+                    m_lastOk = true;
+                    m_lastErr.clear();
+                }
+            }, partialFetch);
         };
         if (delayNextInstall) {
             delayNextInstall = false;
@@ -227,11 +264,14 @@ private:
         return remote;
     }
 
-    void download(const QString &url, const std::function<void(const QByteArray &)> &done)
+    void download(const QString &url, const std::function<void(const QByteArray &)> &done,
+                  bool partial = false)
     {
         QNetworkRequest req((QUrl(url)));
         req.setAttribute(QNetworkRequest::RedirectPolicyAttribute,
                          QNetworkRequest::NoLessSafeRedirectPolicy);
+        if (partial)
+            req.setRawHeader("Range", "bytes=0-99");
         QNetworkReply *reply = m_nam.get(req);
         connect(reply, &QNetworkReply::finished, this, [this, reply, done] {
             const QByteArray bytes = reply->readAll();
@@ -269,6 +309,10 @@ private:
     qint64 m_pullWant = 0;
     bool m_cancelPull = false;
     int m_installFailures = 0;
+    bool m_hasLast = false;
+    bool m_lastOk = false;
+    QString m_lastUrl;
+    QString m_lastErr;
 };
 
 int main(int argc, char *argv[])
@@ -567,6 +611,86 @@ int main(int argc, char *argv[])
         CHECK(queue.model()->itemAt(11).state == ps5::TransferState::Failed);
         CHECK(queue.model()->itemAt(11).message
               == "file no longer exists on the PC");
+
+        // --- an install the console accepts but then fails is a failed row ---
+        // The push succeeds and the console downloads the whole package,
+        // but the install itself dies afterwards. The receiver reports
+        // that outcome (lastOk=false + the URL it ran + its own error
+        // text); the queue must match the URL it pushed and fail the row
+        // with the console's words instead of a false "installed".
+        ps5::LibraryRow consoleFailRow = row;
+        consoleFailRow.title = "INSTALLFAIL Once";
+        queue.enqueue({consoleFailRow}, false);
+        CHECK(waitFor([&] {
+            return queue.model()->count() == 13
+                && queue.model()->itemAt(12).state == ps5::TransferState::Failed;
+        }, 15000));
+        CHECK(queue.model()->itemAt(12).message
+              == "console: not enough free space on the console");
+
+        // A following successful install of a different row still reports
+        // "installed" — the failed last-result must not leak onto it.
+        ps5::LibraryRow okRow = row;
+        okRow.title = "Good After Bad";
+        queue.enqueue({okRow}, false);
+        CHECK(waitFor([&] {
+            return queue.model()->count() == 14
+                && queue.model()->itemAt(13).state == ps5::TransferState::Done;
+        }, 15000));
+        CHECK(queue.model()->itemAt(13).message == "installed");
+
+        // --- a download the console abandons fails the row, not hangs ---
+        // The console accepts the push but its downloader gives up after
+        // a slice: the served counter never reaches the size, the
+        // receiver goes idle with lastOk=false for the exact URL this row
+        // pushed, and the console shows its own error. The row must end
+        // Failed with those words instead of sitting in
+        // "console is downloading…" forever.
+        ps5::LibraryRow dlFailRow = row;
+        dlFailRow.title = "DOWNLOADFAIL Once";
+        queue.enqueue({dlFailRow}, false);
+        CHECK(waitFor([&] {
+            return queue.model()->count() == 15
+                && queue.model()->itemAt(14).state == ps5::TransferState::Failed;
+        }, 15000));
+        CHECK(queue.model()->itemAt(14).message
+              == "console: not enough free space on the console");
+
+        // --- an install finished from a partial fetch is done ---
+        // The console completed the install having fetched fewer bytes
+        // than the PC saw served (a resumed download); the receiver's
+        // report says installed, so the row must settle as Done instead
+        // of hanging while it counts bytes that never come.
+        ps5::LibraryRow partialOkRow = row;
+        partialOkRow.title = "PARTIALOK Once";
+        queue.enqueue({partialOkRow}, false);
+        CHECK(waitFor([&] {
+            return queue.model()->count() == 16
+                && queue.model()->itemAt(15).state == ps5::TransferState::Done;
+        }, 15000));
+        CHECK(queue.model()->itemAt(15).message == "installed");
+
+        // --- a tight console warns before the transfer, not after ---
+        // The receiver reports less than twice the package free: the push
+        // still goes out (the console decides), but the user hears about
+        // the space now instead of after a full download and a refusal.
+        console.spaceFree = payload.size(); // < 2 * size → must warn
+        ps5::LibraryRow tightRow = row;
+        tightRow.title = "Tight Space";
+        queue.enqueue({tightRow}, false);
+        CHECK(waitFor([&] {
+            return queue.model()->count() == 17
+                && queue.model()->itemAt(16).state == ps5::TransferState::Done;
+        }, 15000));
+        bool spaceWarned = false;
+        for (int i = 0; i < 40 && !spaceWarned; i++) {
+            for (const QString &msg : notifyLog)
+                spaceWarned |= msg.contains(QLatin1String("free on the console"))
+                    && msg.contains(QLatin1String("Tight Space"));
+            if (!spaceWarned)
+                waitFor([&] { return false; }, 50);
+        }
+        CHECK(spaceWarned);
     }
 
     if (failures == 0) {

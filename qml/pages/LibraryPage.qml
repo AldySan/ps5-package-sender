@@ -87,6 +87,7 @@ Page {
                 model: ["All", "Game", "DLC", "Image"]
 
                 delegate: Button {
+                    id: filterChip
                     readonly property bool active: page.filter === modelData
                     flat: true
                     text: modelData
@@ -99,14 +100,14 @@ Page {
 
                     background: Rectangle {
                         radius: 12
-                        color: active ? Theme.accentSoft : Theme.chip
-                        border.width: active ? 1 : 0
+                        color: (active || filterChip.hovered) ? Theme.accentSoft : Theme.chip
+                        border.width: active ? 1 : filterChip.activeFocus ? 2 : 0
                         border.color: Theme.accent
                     }
 
                     contentItem: Label {
                         text: parent.text
-                        color: parent.active ? Theme.accent : Theme.textMuted
+                        color: parent.active ? Theme.accentText : Theme.textMuted
                         font: parent.font
                     }
                 }
@@ -117,7 +118,7 @@ Page {
             AppButton {
                 visible: app.libraryModel.familyFilter.length > 0
                 flat: true
-                text: qsTr("↩ Back to all")
+                text: qsTr("Back to all")
                 font.pixelSize: 12
                 onClicked: app.libraryModel.familyFilter = ""
             }
@@ -178,7 +179,7 @@ Page {
             horizontalAlignment: Text.AlignHCenter
             verticalAlignment: Text.AlignVCenter
             text: app.scanning ? qsTr("Scanning…")
-                 : qsTr("No packages yet — add a folder or drop PKG/FPKG files here")
+                 : qsTr("No packages yet: add a folder or drop PKG/FPKG files here")
             color: Theme.textMuted
             font.pixelSize: 14
             wrapMode: Text.WordWrap

@@ -57,14 +57,14 @@ Page {
                         width: kindLabel.implicitWidth + 10
                         height: kindLabel.implicitHeight + 4
                         radius: 4
-                        color: modelData.kind === "copy" ? "#22f5b83d" : Theme.accentSoft
+                        color: modelData.kind === "copy" ? Theme.warnSoft : Theme.accentSoft
 
                         Label {
                             id: kindLabel
                             anchors.centerIn: parent
                             text: modelData.kind === "copy" ? qsTr("COPY") : qsTr("INSTALL")
-                            color: modelData.kind === "copy" ? Theme.warn : Theme.accent
-                            font.pixelSize: 9
+                            color: modelData.kind === "copy" ? Theme.warn : Theme.accentText
+                            font.pixelSize: 11
                             font.bold: true
                         }
                     }
@@ -85,7 +85,7 @@ Page {
                             visible: modelData.remotePath.length > 0
                             text: modelData.remotePath
                             color: Theme.textMuted
-                            font.pixelSize: 10
+                            font.pixelSize: 11
                             font.family: Theme.mono
                             elide: Text.ElideMiddle
                             Layout.fillWidth: true
@@ -103,7 +103,7 @@ Page {
                         }
 
                         Label {
-                            text: modelData.ok ? qsTr("ok") : qsTr("failed")
+                            text: modelData.ok ? qsTr("Done") : qsTr("Failed")
                             color: modelData.ok ? Theme.ok : Theme.error
                             font.pixelSize: 11
                             Layout.alignment: Qt.AlignRight

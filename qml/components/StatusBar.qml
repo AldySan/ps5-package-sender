@@ -6,6 +6,8 @@ import PS5PackageSender
 ToolBar {
     id: root
     height: 56
+    readonly property bool roomy: root.Window.window
+                                  ? root.Window.window.width >= 1080 : false
     background: Rectangle { color: Theme.surface }
 
     RowLayout {
@@ -25,7 +27,7 @@ ToolBar {
             ToolTip.text: !app.hasNetwork ? qsTr("No network")
                          : app.receiverOnline
                            ? (app.receiverBuild.length > 0
-                              ? qsTr("Receiver online — build %1").arg(app.receiverBuild)
+                              ? qsTr("Receiver online (build %1)").arg(app.receiverBuild)
                               : qsTr("Receiver online"))
                          : qsTr("Receiver offline")
             MouseArea {
@@ -41,6 +43,8 @@ ToolBar {
                   : qsTr("no receiver")
             color: app.receiverOnline ? Theme.ok : Theme.error
             font.pixelSize: 12
+            elide: Text.ElideRight
+            Layout.maximumWidth: 110
         }
 
         Label {
@@ -48,25 +52,41 @@ ToolBar {
             text: app.freeSpaceText
             color: Theme.textMuted
             font.pixelSize: 12
+            elide: Text.ElideRight
+            Layout.maximumWidth: 150
         }
 
-        Label {
-            visible: app.shareEnabled && app.catalogUrl.length > 0
-            text: app.catalogUrl
-            color: Theme.accent
+        Button {
+            id: catalogButton
+            visible: app.shareEnabled && app.catalogUrl.length > 0 && root.roomy
+            flat: true
             font.pixelSize: 11
             font.family: Theme.mono
+            Layout.maximumWidth: 250
+            Accessible.description: qsTr("Copies the catalog address to the clipboard")
+            ToolTip.visible: hovered
+            ToolTip.text: qsTr("Copy the catalog address")
+            onClicked: app.copyToClipboard(app.catalogUrl)
 
-            MouseArea {
-                anchors.fill: parent
-                cursorShape: Qt.PointingHandCursor
-                onClicked: app.copyToClipboard(app.catalogUrl)
+            background: Rectangle {
+                radius: Theme.controlRadius
+                color: catalogButton.hovered ? Theme.accentSoft : "transparent"
+                border.width: catalogButton.activeFocus ? 2 : 0
+                border.color: Theme.accent
+            }
+
+            contentItem: Label {
+                text: app.catalogUrl
+                color: Theme.accentText
+                font: catalogButton.font
+                verticalAlignment: Text.AlignVCenter
+                elide: Text.ElideMiddle
             }
         }
 
         AppButton {
             checkable: true
-            text: checked ? qsTr("Share on") : qsTr("Share to console")
+            text: checked ? qsTr("Stop sharing") : qsTr("Share to console")
             checked: app.shareEnabled
             onToggled: app.shareEnabled = checked
             ToolTip.visible: hovered
@@ -77,7 +97,7 @@ ToolBar {
 
         AppComboBox {
             id: pcBox
-            implicitWidth: 200
+            implicitWidth: 160
             model: app.pcAddressLabels
             visible: app.pcAddresses.length > 0
             currentIndex: app.pcIp ? app.pcAddresses.indexOf(app.pcIp) : -1
@@ -94,7 +114,7 @@ ToolBar {
         AppTextField {
             id: consoleIpField
             implicitWidth: 130
-            placeholderText: qsTr("console IP")
+            placeholderText: qsTr("Console IP")
             text: app.psIp
             selectByMouse: true
             onEditingFinished: app.psIp = text.trim()
@@ -133,7 +153,7 @@ ToolBar {
         }
 
         Overlay.modal: Rectangle {
-            color: Theme.dark ? "#000000b0" : "#00000059"
+            color: Theme.scrim
         }
 
         contentItem: ColumnLayout {
@@ -150,11 +170,9 @@ ToolBar {
                     Layout.fillWidth: true
                 }
 
-                AppButton {
-                    flat: true
-                    implicitWidth: 30
-                    font.pixelSize: 12
-                    text: qsTr("✕")
+                IconButton {
+                    iconName: "close"
+                    ToolTip.text: qsTr("Close")
                     onClicked: {
                         if (app.discovering)
                             app.cancelDiscovery()
@@ -185,21 +203,28 @@ ToolBar {
                 spacing: 6
                 ScrollBar.vertical: ScrollBar {}
 
-                delegate: Rectangle {
+                delegate: ItemDelegate {
+                    id: consoleEntry
+                    required property var modelData
                     width: consoleList.width
                     height: 52
-                    radius: Theme.radius
-                    color: modelData.verified ? Theme.accentSoft : Theme.surfaceAlt
-                    border.width: modelData.ip === app.psIp ? 1 : 0
-                    border.color: Theme.accent
+                    padding: 8
+                    focusPolicy: Qt.StrongFocus
+                    Accessible.name: modelData.ip
 
-                    ColumnLayout {
-                        anchors.fill: parent
-                        anchors.margins: 8
+                    background: Rectangle {
+                        radius: Theme.radius
+                        color: consoleEntry.modelData.verified ? Theme.accentSoft : Theme.surfaceAlt
+                        border.width: consoleEntry.modelData.ip === app.psIp ? 1
+                                      : consoleEntry.activeFocus ? 2 : 0
+                        border.color: Theme.accent
+                    }
+
+                    contentItem: ColumnLayout {
                         spacing: 2
 
                         Label {
-                            text: modelData.ip
+                            text: consoleEntry.modelData.ip
                             color: Theme.text
                             font.pixelSize: 13
                             font.bold: true
@@ -207,26 +232,23 @@ ToolBar {
                         }
 
                         Label {
-                            text: modelData.verified
-                                  ? (modelData.busy ? qsTr("busy") : qsTr("ready"))
+                            text: consoleEntry.modelData.verified
+                                  ? (consoleEntry.modelData.busy ? qsTr("busy") : qsTr("ready"))
                                   : qsTr("port open, no API reply")
-                            color: modelData.verified ? Theme.ok : Theme.warn
+                            color: consoleEntry.modelData.verified ? Theme.ok : Theme.warn
                             font.pixelSize: 11
                         }
                     }
 
-                    MouseArea {
-                        anchors.fill: parent
-                        onClicked: {
-                            app.useConsole(modelData.ip)
-                            // Re-establish the text binding instead of writing
-                            // into the field: an imperative assignment would
-                            // detach it from app.psIp, so the field would stop
-                            // following later changes and editing it could
-                            // write a stale IP back into the settings.
-                            consoleIpField.text = Qt.binding(() => app.psIp)
-                            consolePopup.close()
-                        }
+                    onClicked: {
+                        app.useConsole(modelData.ip)
+                        // Re-establish the text binding instead of writing
+                        // into the field: an imperative assignment would
+                        // detach it from app.psIp, so the field would stop
+                        // following later changes and editing it could
+                        // write a stale IP back into the settings.
+                        consoleIpField.text = Qt.binding(() => app.psIp)
+                        consolePopup.close()
                     }
                 }
             }

@@ -59,10 +59,13 @@ representative at an online or offline event.
 ## Enforcement
 
 Instances of abusive, harassing, or otherwise unacceptable behavior may be
-reported to the community leaders responsible for enforcement by opening a
-private GitHub security advisory, or through GitHub's *Report content* feature
-on the offending post. All complaints will be reviewed and investigated
-promptly and fairly.
+reported to the community leaders responsible for enforcement. On GitHub,
+use the *Report content* option on the offending issue, pull request, or
+comment; the report reaches the repository maintainers privately. For
+anything you would rather raise in private, or conduct that happens outside
+GitHub's spaces, send a message to the maintainer through
+[Ko-fi](https://ko-fi.com/aldysan). All complaints will be reviewed and
+investigated promptly and fairly.
 
 All community leaders are obligated to respect the privacy and security of the
 reporter of any incident.
