@@ -135,27 +135,19 @@ Rectangle {
 
             Item { Layout.fillWidth: true }
 
-            AppButton {
+            IconButton {
                 visible: model.familyKey.length > 0
-                flat: true
-                text: "🔗"
-                implicitWidth: 30
-                implicitHeight: 28
-                font.pixelSize: 11
-                onClicked: app.libraryModel.familyFilter = model.familyKey
-                ToolTip.visible: hovered
+                iconName: "link"
+                iconSize: 14
                 ToolTip.text: qsTr("Show this title family")
+                onClicked: app.libraryModel.familyFilter = model.familyKey
             }
 
-            AppButton {
-                flat: true
-                text: qsTr("✕")
-                implicitWidth: 30
-                implicitHeight: 28
-                font.pixelSize: 11
-                onClicked: app.removeEntry(model.id)
-                ToolTip.visible: hovered
+            IconButton {
+                iconName: "close"
+                iconSize: 14
                 ToolTip.text: qsTr("Remove from the library (the file stays on disk)")
+                onClicked: app.removeEntry(model.id)
             }
         }
     }

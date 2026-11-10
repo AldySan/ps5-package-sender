@@ -170,12 +170,8 @@ ToolBar {
                     Layout.fillWidth: true
                 }
 
-                AppButton {
-                    flat: true
-                    implicitWidth: 30
-                    font.pixelSize: 12
-                    text: qsTr("✕")
-                    ToolTip.visible: hovered
+                IconButton {
+                    iconName: "close"
                     ToolTip.text: qsTr("Close")
                     onClicked: {
                         if (app.discovering)

@@ -16,7 +16,7 @@ if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
     set(CMAKE_BUILD_TYPE Release CACHE STRING "Build type" FORCE)
 endif()
 
-find_package(Qt6 6.5 REQUIRED COMPONENTS Quick QuickControls2 Sql Network Concurrent)
+find_package(Qt6 6.5 REQUIRED COMPONENTS Quick QuickControls2 Sql Network Concurrent Svg)
 
 qt_standard_project_setup(REQUIRES 6.5)
 
@@ -63,6 +63,7 @@ target_link_libraries(ps5-package-sender PRIVATE
     Qt6::Sql
     Qt6::Network
     Qt6::Concurrent
+    Qt6::Svg
     ps5core)
 
 set_source_files_properties(qml/Theme.qml PROPERTIES
@@ -83,8 +84,10 @@ qt_add_qml_module(ps5-package-sender
         qml/components/AppComboBox.qml
         qml/components/AppTextField.qml
         qml/components/GameCard.qml
-        qml/components/Toast.qml
+        qml/components/IconButton.qml
         qml/components/StatusBar.qml
+        qml/components/ThemeIcon.qml
+        qml/components/Toast.qml
         qml/components/QueueRow.qml
         qml/components/DestinationPicker.qml
         qml/pages/LibraryPage.qml

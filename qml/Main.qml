@@ -110,29 +110,12 @@ ApplicationWindow {
                     }
                 }
 
-                Button {
+                IconButton {
                     id: themeToggle
-                    flat: true
-                    implicitHeight: 32
-                    font.pixelSize: 13
-                    text: Theme.dark ? qsTr("☀") : qsTr("☾")
-                    ToolTip.visible: hovered
+                    iconName: Theme.dark ? "sun" : "moon"
                     ToolTip.text: Theme.dark ? qsTr("Switch to light theme")
                                              : qsTr("Switch to dark theme")
                     onClicked: app.theme = Theme.dark ? "light" : "dark"
-
-                    background: Rectangle {
-                        radius: Theme.radius
-                        color: themeToggle.hovered ? Theme.accentSoft : Theme.chip
-                        border.width: themeToggle.activeFocus ? 2 : 0
-                        border.color: Theme.accent
-                    }
-
-                    contentItem: Label {
-                        text: parent.text
-                        color: Theme.text
-                        font: parent.font
-                    }
                 }
             }
         }
