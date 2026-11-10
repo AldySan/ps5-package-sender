@@ -118,7 +118,7 @@ Page {
             AppButton {
                 visible: app.libraryModel.familyFilter.length > 0
                 flat: true
-                text: qsTr("↩ Back to all")
+                text: qsTr("Back to all")
                 font.pixelSize: 12
                 onClicked: app.libraryModel.familyFilter = ""
             }

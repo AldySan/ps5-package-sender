@@ -106,62 +106,44 @@ Rectangle {
                 RowLayout {
                     spacing: 4
 
-                    AppButton {
+                    IconButton {
                         visible: model.canPause
-                        text: qsTr("⏸")
-                        flat: true
-                        implicitWidth: 34
-                        ToolTip.visible: hovered
+                        iconName: "pause"
                         ToolTip.text: qsTr("Pause the console copy")
                         onClicked: app.queue.pauseRow(model.id)
                     }
 
-                    AppButton {
+                    IconButton {
                         visible: model.state === 5
-                        text: qsTr("▶")
-                        flat: true
-                        implicitWidth: 34
-                        ToolTip.visible: hovered
+                        iconName: "play"
                         ToolTip.text: qsTr("Resume")
                         onClicked: app.queue.resumeRow(model.id)
                     }
 
-                    AppButton {
+                    IconButton {
                         visible: model.canRetry
-                        text: qsTr("↻")
-                        flat: true
-                        implicitWidth: 34
-                        ToolTip.visible: hovered
+                        iconName: "refresh"
                         ToolTip.text: qsTr("Retry this item")
                         onClicked: app.queue.retryRow(model.id)
                     }
 
-                    AppButton {
+                    IconButton {
                         visible: model.canCancel
-                        text: qsTr("✕")
-                        flat: true
-                        implicitWidth: 34
-                        ToolTip.visible: hovered
+                        iconName: "close"
                         ToolTip.text: qsTr("Cancel")
                         onClicked: app.queue.cancelRow(model.id)
                     }
 
-                    AppButton {
-                        text: qsTr("↑")
-                        flat: true
-                        implicitWidth: 30
+                    IconButton {
+                        iconName: "chevron-up"
                         enabled: model.state === 0
-                        ToolTip.visible: hovered
                         ToolTip.text: qsTr("Move up")
                         onClicked: app.queue.moveRow(model.id, -1)
                     }
 
-                    AppButton {
-                        text: qsTr("↓")
-                        flat: true
-                        implicitWidth: 30
+                    IconButton {
+                        iconName: "chevron-down"
                         enabled: model.state === 0
-                        ToolTip.visible: hovered
                         ToolTip.text: qsTr("Move down")
                         onClicked: app.queue.moveRow(model.id, 1)
                     }
