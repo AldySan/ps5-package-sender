@@ -18,8 +18,8 @@ Button {
                    ? (control.hovered ? Theme.accentSoft : "transparent")
                    : control.down ? Theme.border
                    : control.hovered ? Theme.chip : Theme.surfaceAlt
-        border.width: control.checked ? 1 : 0
-        border.color: Theme.accent
+        border.width: control.activeFocus ? 2 : control.checked ? 1 : 0
+        border.color: control.highlighted ? Theme.text : Theme.accent
     }
 
     contentItem: Label {

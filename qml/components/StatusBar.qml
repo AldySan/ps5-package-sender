@@ -50,17 +50,29 @@ ToolBar {
             font.pixelSize: 12
         }
 
-        Label {
+        Button {
+            id: catalogButton
             visible: app.shareEnabled && app.catalogUrl.length > 0
-            text: app.catalogUrl
-            color: Theme.accentText
+            flat: true
             font.pixelSize: 11
             font.family: Theme.mono
+            Accessible.description: qsTr("Copies the catalog address to the clipboard")
+            ToolTip.visible: hovered
+            ToolTip.text: qsTr("Copy the catalog address")
+            onClicked: app.copyToClipboard(app.catalogUrl)
 
-            MouseArea {
-                anchors.fill: parent
-                cursorShape: Qt.PointingHandCursor
-                onClicked: app.copyToClipboard(app.catalogUrl)
+            background: Rectangle {
+                radius: Theme.controlRadius
+                color: catalogButton.hovered ? Theme.accentSoft : "transparent"
+                border.width: catalogButton.activeFocus ? 2 : 0
+                border.color: Theme.accent
+            }
+
+            contentItem: Label {
+                text: app.catalogUrl
+                color: Theme.accentText
+                font: catalogButton.font
+                verticalAlignment: Text.AlignVCenter
             }
         }
 
@@ -185,21 +197,28 @@ ToolBar {
                 spacing: 6
                 ScrollBar.vertical: ScrollBar {}
 
-                delegate: Rectangle {
+                delegate: ItemDelegate {
+                    id: consoleEntry
+                    required property var modelData
                     width: consoleList.width
                     height: 52
-                    radius: Theme.radius
-                    color: modelData.verified ? Theme.accentSoft : Theme.surfaceAlt
-                    border.width: modelData.ip === app.psIp ? 1 : 0
-                    border.color: Theme.accent
+                    padding: 8
+                    focusPolicy: Qt.StrongFocus
+                    Accessible.name: modelData.ip
 
-                    ColumnLayout {
-                        anchors.fill: parent
-                        anchors.margins: 8
+                    background: Rectangle {
+                        radius: Theme.radius
+                        color: consoleEntry.modelData.verified ? Theme.accentSoft : Theme.surfaceAlt
+                        border.width: consoleEntry.modelData.ip === app.psIp ? 1
+                                      : consoleEntry.activeFocus ? 2 : 0
+                        border.color: Theme.accent
+                    }
+
+                    contentItem: ColumnLayout {
                         spacing: 2
 
                         Label {
-                            text: modelData.ip
+                            text: consoleEntry.modelData.ip
                             color: Theme.text
                             font.pixelSize: 13
                             font.bold: true
@@ -207,26 +226,23 @@ ToolBar {
                         }
 
                         Label {
-                            text: modelData.verified
-                                  ? (modelData.busy ? qsTr("busy") : qsTr("ready"))
+                            text: consoleEntry.modelData.verified
+                                  ? (consoleEntry.modelData.busy ? qsTr("busy") : qsTr("ready"))
                                   : qsTr("port open, no API reply")
-                            color: modelData.verified ? Theme.ok : Theme.warn
+                            color: consoleEntry.modelData.verified ? Theme.ok : Theme.warn
                             font.pixelSize: 11
                         }
                     }
 
-                    MouseArea {
-                        anchors.fill: parent
-                        onClicked: {
-                            app.useConsole(modelData.ip)
-                            // Re-establish the text binding instead of writing
-                            // into the field: an imperative assignment would
-                            // detach it from app.psIp, so the field would stop
-                            // following later changes and editing it could
-                            // write a stale IP back into the settings.
-                            consoleIpField.text = Qt.binding(() => app.psIp)
-                            consolePopup.close()
-                        }
+                    onClicked: {
+                        app.useConsole(modelData.ip)
+                        // Re-establish the text binding instead of writing
+                        // into the field: an imperative assignment would
+                        // detach it from app.psIp, so the field would stop
+                        // following later changes and editing it could
+                        // write a stale IP back into the settings.
+                        consoleIpField.text = Qt.binding(() => app.psIp)
+                        consolePopup.close()
                     }
                 }
             }

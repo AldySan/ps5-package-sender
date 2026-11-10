@@ -87,6 +87,7 @@ Page {
                 model: ["All", "Game", "DLC", "Image"]
 
                 delegate: Button {
+                    id: filterChip
                     readonly property bool active: page.filter === modelData
                     flat: true
                     text: modelData
@@ -100,7 +101,7 @@ Page {
                     background: Rectangle {
                         radius: 12
                         color: active ? Theme.accentSoft : Theme.chip
-                        border.width: active ? 1 : 0
+                        border.width: active ? 1 : filterChip.activeFocus ? 2 : 0
                         border.color: Theme.accent
                     }
 

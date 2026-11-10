@@ -53,6 +53,7 @@ Rectangle {
                 anchors.left: parent.left
                 anchors.margins: 4
                 checked: model.selected
+                Accessible.name: qsTr("Select %1").arg(model.title)
                 onClicked: app.libraryModel.toggleSelected(model.id)
             }
 
