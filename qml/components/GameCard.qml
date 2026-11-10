@@ -72,7 +72,7 @@ Rectangle {
                     anchors.centerIn: parent
                     text: model.platform
                     color: model.platform === "PS5" ? Theme.accentText : Theme.warn
-                    font.pixelSize: 10
+                    font.pixelSize: 11
                     font.bold: true
                 }
             }
@@ -118,7 +118,7 @@ Rectangle {
                     anchors.centerIn: parent
                     text: model.format.toUpperCase()
                     color: Theme.textMuted
-                    font.pixelSize: 10
+                    font.pixelSize: 11
                     font.bold: true
                 }
             }
@@ -139,7 +139,8 @@ Rectangle {
                 visible: model.familyKey.length > 0
                 flat: true
                 text: "🔗"
-                implicitHeight: 22
+                implicitWidth: 30
+                implicitHeight: 28
                 font.pixelSize: 11
                 onClicked: app.libraryModel.familyFilter = model.familyKey
                 ToolTip.visible: hovered
@@ -150,7 +151,7 @@ Rectangle {
                 flat: true
                 text: qsTr("✕")
                 implicitWidth: 30
-                implicitHeight: 22
+                implicitHeight: 28
                 font.pixelSize: 11
                 onClicked: app.removeEntry(model.id)
                 ToolTip.visible: hovered
