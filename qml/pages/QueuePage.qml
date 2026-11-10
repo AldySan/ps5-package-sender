@@ -70,7 +70,7 @@ Page {
             Layout.fillHeight: true
             horizontalAlignment: Text.AlignHCenter
             verticalAlignment: Text.AlignVCenter
-            text: qsTr("Nothing queued yet — select packages in the Library and press Send PKG")
+            text: qsTr("Nothing queued yet: select packages in the Library and press Send PKG")
             color: Theme.textMuted
             font.pixelSize: 14
             wrapMode: Text.WordWrap

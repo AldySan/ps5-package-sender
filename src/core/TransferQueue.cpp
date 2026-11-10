@@ -80,7 +80,7 @@ void TransferQueue::enqueue(const QList<LibraryRow> &rows, bool copy)
                        tr("file no longer exists on the PC"));
     }
     if (missing > 0)
-        emit notify(tr("Skipped %1 item(s) — the file(s) no longer exist on the PC")
+        emit notify(tr("Skipped %1 item(s): the file(s) no longer exist on the PC")
                         .arg(missing));
     pump();
 }
@@ -157,7 +157,7 @@ void TransferQueue::startInstall(QueueItem &item)
         if (!space.online || space.free < 0 || size <= 0)
             return;
         if (space.free < 2 * size)
-            emit notify(tr("%1: only %2 free on the console — an install "
+            emit notify(tr("%1: only %2 free on the console. An install "
                            "keeps two copies at once and needs about %3, "
                            "so it may be refused")
                             .arg(it->name, formatSize(space.free),
@@ -392,7 +392,7 @@ void TransferQueue::onReceiverOffline()
             continue;
         }
         if (!item.isCopy && item.state == TransferState::Downloading) {
-            item.message = tr("console went offline — will resume");
+            item.message = tr("console went offline (will resume)");
             item.state = TransferState::Queued;
             // Another push may already be in flight; leave its marker alone.
             if (m_activePushId == item.id)

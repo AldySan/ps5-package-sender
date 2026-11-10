@@ -245,7 +245,7 @@ Page {
                 Label {
                     visible: !app.checkingUpdate && app.latestVersion.length > 0
                              && !app.updateAvailable
-                    text: qsTr("Up to date — %1 is the latest release").arg(app.latestVersion)
+                    text: qsTr("Up to date: %1 is the latest release").arg(app.latestVersion)
                     color: Theme.textMuted
                     font.pixelSize: 13
                 }
@@ -259,7 +259,7 @@ Page {
             }
 
             Label {
-                text: qsTr("PS5 Package Sender %1 — a small desktop tool that moves "
+                text: qsTr("PS5 Package Sender %1, a small desktop tool that moves "
                     + "games, updates and extra content onto a jailbroken "
                     + "PlayStation 5 over your home network. It is portable: "
                     + "unzip and run, no installer, nothing left behind.")
@@ -272,7 +272,7 @@ Page {
 
             Text {
                 text: qsTr("The console side needs the companion receiver program "
-                    + "(ps5-receiver.elf) running in the background — grab it "
+                    + "(ps5-receiver.elf) running in the background: grab it "
                     + "from the releases of the receiver project. Both sides "
                     + "are open source:<br>"
                     + "• this app: <a href=\"https://github.com/AldySan/ps5-package-sender\">ps5-package-sender</a><br>"

@@ -25,7 +25,7 @@ ToolBar {
             ToolTip.text: !app.hasNetwork ? qsTr("No network")
                          : app.receiverOnline
                            ? (app.receiverBuild.length > 0
-                              ? qsTr("Receiver online — build %1").arg(app.receiverBuild)
+                              ? qsTr("Receiver online (build %1)").arg(app.receiverBuild)
                               : qsTr("Receiver online"))
                          : qsTr("Receiver offline")
             MouseArea {

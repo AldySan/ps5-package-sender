@@ -186,8 +186,8 @@ void Discovery::findConsoles()
         }
 
         emit progressMessage(beaconIps.isEmpty()
-            ? tr("No beacon heard — sweeping the LAN…")
-            : tr("Beacon heard from %n host(s) — sweeping to be sure…", "",
+            ? tr("No beacon heard, sweeping the LAN…")
+            : tr("Beacon heard from %n host(s), sweeping to be sure…", "",
                  beaconIps.size()));
 
         QStringList candidates = beaconIps;
