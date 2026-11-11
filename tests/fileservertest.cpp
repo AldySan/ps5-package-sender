@@ -59,15 +59,18 @@ static void pumpEvents(int ms)
 
 // Reads exactly one HTTP response over a raw socket. Every reply this server
 // sends carries Content-Length, so the body end is known without a close.
-static bool readOneResponse(QTcpSocket &sock, RawResponse *out)
+// *rbucket carries undelivered bytes across calls: one read can deliver
+// several pipelined responses at once, and a per-call buffer would parse
+// the first and silently discard the rest.
+static bool readOneResponse(QTcpSocket &sock, RawResponse *out,
+                            QByteArray *rbucket)
 {
-    QByteArray buf;
     QElapsedTimer timer;
     timer.start();
-    int headEnd = -1;
-    while (timer.elapsed() < 5000) {
-        buf += sock.readAll();
-        headEnd = buf.indexOf("\r\n\r\n");
+    int headEnd = rbucket->indexOf("\r\n\r\n");
+    while (headEnd < 0 && timer.elapsed() < 5000) {
+        *rbucket += sock.readAll();
+        headEnd = rbucket->indexOf("\r\n\r\n");
         if (headEnd >= 0)
             break;
         if (sock.state() != QAbstractSocket::ConnectedState)
@@ -76,7 +79,7 @@ static bool readOneResponse(QTcpSocket &sock, RawResponse *out)
     }
     if (headEnd < 0)
         return false;
-    const QByteArray head = buf.left(headEnd);
+    const QByteArray head = rbucket->left(headEnd);
     qint64 length = -1;
     for (const QByteArray &line : head.split('\n')) {
         const int colon = line.indexOf(':');
@@ -86,15 +89,17 @@ static bool readOneResponse(QTcpSocket &sock, RawResponse *out)
     }
     if (length < 0)
         return false;
-    while (buf.size() < headEnd + 4 + int(length) && timer.elapsed() < 15000) {
+    while (rbucket->size() < headEnd + 4 + int(length)
+           && timer.elapsed() < 15000) {
         if (sock.state() != QAbstractSocket::ConnectedState)
             return false;
         pumpEvents(25);
-        buf += sock.readAll();
+        *rbucket += sock.readAll();
     }
     out->status = head.mid(9, 3).toInt();
     out->headers = head;
-    out->body = buf.mid(headEnd + 4, int(length));
+    out->body = rbucket->mid(headEnd + 4, int(length));
+    rbucket->remove(0, headEnd + 4 + int(length));
     return out->body.size() == int(length);
 }
 
@@ -316,6 +321,7 @@ int main(int argc, char *argv[])
     // still end it.
     {
         QTcpSocket sock;
+        QByteArray bucket;
         sock.connectToHost(QStringLiteral("127.0.0.1"), quint16(server.port()));
         CHECK(sock.waitForConnected(5000));
 
@@ -323,7 +329,7 @@ int main(int argc, char *argv[])
                    "Connection: keep-alive\r\n\r\n");
         CHECK(sock.waitForBytesWritten(5000));
         RawResponse r1;
-        CHECK(readOneResponse(sock, &r1));
+        CHECK(readOneResponse(sock, &r1, &bucket));
         CHECK(r1.status == 200);
         CHECK(r1.body == payload);
         CHECK(r1.headers.contains("Connection: keep-alive"));
@@ -335,7 +341,7 @@ int main(int argc, char *argv[])
                    " HTTP/1.1\r\nHost: 127.0.0.1\r\nRange: bytes=0-0\r\n\r\n");
         CHECK(sock.waitForBytesWritten(5000));
         RawResponse r2;
-        CHECK(readOneResponse(sock, &r2));
+        CHECK(readOneResponse(sock, &r2, &bucket));
         CHECK(r2.status == 206);
         CHECK(r2.body == payload.left(1));
         CHECK(sock.state() == QAbstractSocket::ConnectedState);
@@ -346,7 +352,7 @@ int main(int argc, char *argv[])
                    "Range: bytes=400000-400009\r\n\r\n");
         CHECK(sock.waitForBytesWritten(5000));
         RawResponse r416;
-        CHECK(readOneResponse(sock, &r416));
+        CHECK(readOneResponse(sock, &r416, &bucket));
         CHECK(r416.status == 416);
         CHECK(r416.headers.contains("Content-Range: bytes */300000"));
         CHECK(sock.state() == QAbstractSocket::ConnectedState);
@@ -355,7 +361,7 @@ int main(int argc, char *argv[])
                    "Range: bytes=294912-360447\r\n\r\n");
         CHECK(sock.waitForBytesWritten(5000));
         RawResponse rclamp;
-        CHECK(readOneResponse(sock, &rclamp));
+        CHECK(readOneResponse(sock, &rclamp, &bucket));
         CHECK(rclamp.status == 206);
         CHECK(rclamp.body == payload.mid(294912));
         CHECK(rclamp.headers.contains("Last-Modified: Wed, 01 Jan 2025 00:00:00 GMT"));
@@ -364,7 +370,7 @@ int main(int argc, char *argv[])
                    "Connection: close\r\n\r\n");
         CHECK(sock.waitForBytesWritten(5000));
         RawResponse r3;
-        CHECK(readOneResponse(sock, &r3));
+        CHECK(readOneResponse(sock, &r3, &bucket));
         CHECK(r3.status == 200);
         CHECK(r3.headers.contains("Connection: close"));
         CHECK(serverClosedConnection(sock));
@@ -375,6 +381,7 @@ int main(int argc, char *argv[])
     // through one recursive call per request.
     {
         QTcpSocket sock;
+        QByteArray bucket;
         sock.connectToHost(QStringLiteral("127.0.0.1"), quint16(server.port()));
         CHECK(sock.waitForConnected(5000));
 
@@ -386,7 +393,7 @@ int main(int argc, char *argv[])
         CHECK(sock.waitForBytesWritten(5000));
         int served = 0;
         RawResponse r;
-        while (served < 500 && readOneResponse(sock, &r))
+        while (served < 500 && readOneResponse(sock, &r, &bucket))
             served++;
         CHECK(served == 500);
         CHECK(r.status == 206);
@@ -397,7 +404,7 @@ int main(int argc, char *argv[])
                    "Connection: close\r\n\r\n");
         CHECK(sock.waitForBytesWritten(5000));
         RawResponse rclose;
-        CHECK(readOneResponse(sock, &rclose));
+        CHECK(readOneResponse(sock, &rclose, &bucket));
         CHECK(rclose.status == 200);
         CHECK(serverClosedConnection(sock));
     }
