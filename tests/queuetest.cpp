@@ -210,7 +210,8 @@ private:
         // through the instPhase/instGot progress fields.
         const bool staged = name.contains(QLatin1String("STAGED"));
         const auto respond = [this, sock, fail, url, failInstall, abortDownload,
-                              partialFetch, staged, name]() {
+                              partialFetch, staged, name, silentOk,
+                              stallMe]() {
             installReplies++;
             if (fail) {
                 m_installFailures++;
