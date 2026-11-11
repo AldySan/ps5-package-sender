@@ -370,6 +370,38 @@ int main(int argc, char *argv[])
         CHECK(serverClosedConnection(sock));
     }
 
+    // A client may pipeline: hundreds of requests stacked in one write must
+    // all be answered on the same connection, iteratively rather than
+    // through one recursive call per request.
+    {
+        QTcpSocket sock;
+        sock.connectToHost(QStringLiteral("127.0.0.1"), quint16(server.port()));
+        CHECK(sock.waitForConnected(5000));
+
+        QByteArray batch;
+        for (int i = 0; i < 500; i++)
+            batch += "GET /pkg/17 HTTP/1.1\r\nHost: 127.0.0.1\r\n"
+                     "Range: bytes=0-0\r\n\r\n";
+        sock.write(batch);
+        CHECK(sock.waitForBytesWritten(5000));
+        int served = 0;
+        RawResponse r;
+        while (served < 500 && readOneResponse(sock, &r))
+            served++;
+        CHECK(served == 500);
+        CHECK(r.status == 206);
+        CHECK(r.body == payload.left(1));
+        CHECK(sock.state() == QAbstractSocket::ConnectedState);
+
+        sock.write("GET /pkg/17 HTTP/1.1\r\nHost: 127.0.0.1\r\n"
+                   "Connection: close\r\n\r\n");
+        CHECK(sock.waitForBytesWritten(5000));
+        RawResponse rclose;
+        CHECK(readOneResponse(sock, &rclose));
+        CHECK(rclose.status == 200);
+        CHECK(serverClosedConnection(sock));
+    }
+
     server.revoke(QStringLiteral("17"));
     {
         QNetworkReply *r = syncGet(nam, QUrl(base + "/pkg/17"));

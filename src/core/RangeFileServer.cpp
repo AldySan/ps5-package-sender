@@ -371,8 +371,13 @@ private:
         }
         // The client asked to reuse this connection: the next request is
         // either already buffered (pipelining) or arrives with readyRead.
+        // Re-entering readHeader synchronously from here would recurse
+        // once per pipelined request, and a client that stacks enough of
+        // them can grow that chain past the stack. One queued hop back
+        // into the event loop drains the backlog iteratively instead.
         m_idle.start();
-        readHeader();
+        QMetaObject::invokeMethod(this, &ServerConnection::readHeader,
+                                  Qt::QueuedConnection);
     }
 
     // Transport-level failure: the response was cut short or the request was
