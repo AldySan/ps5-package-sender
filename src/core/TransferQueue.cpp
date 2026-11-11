@@ -317,6 +317,7 @@ void TransferQueue::onReceiverStatus(const ReceiverStatus &status)
 
         if (!item.isCopy && item.state == TransferState::Downloading
             && item.size > 0) {
+            const qint64 nowMs = QDateTime::currentMSecsSinceEpoch();
             // The receiver reports which leg of OUR install is moving: a
             // staged install delivers the package twice on the console
             // (it stages the file, then the console's own downloader
@@ -331,17 +332,22 @@ void TransferQueue::onReceiverStatus(const ReceiverStatus &status)
             if (jobOurs && status.instPhase == 2) {
                 item.staged = true;
                 item.sent = qBound<qint64>(0, status.instGot, item.size);
+                item.progressMs = nowMs;
                 item.message = tr("console is preparing the download…");
                 m_model->updateItem(item);
             } else if (jobOurs && status.instPhase == 3) {
                 item.staged = true;
                 item.sent = item.size
                     + qBound<qint64>(0, status.instGot, item.size);
+                item.progressMs = nowMs;
                 item.message = tr("console is downloading…");
                 m_model->updateItem(item);
             } else if (!item.staged) {
                 const qint64 served = m_server->servedFor(item.serverId);
+                const qint64 previous = item.sent;
                 item.sent = served;
+                if (item.sent != previous || item.progressMs == 0)
+                    item.progressMs = nowMs;
                 if (served + DownloadTolerance >= item.size) {
                     item.state = TransferState::Installing;
                     item.message = tr("installing on console…");
@@ -355,6 +361,20 @@ void TransferQueue::onReceiverStatus(const ReceiverStatus &status)
                 // Between the receiver's phase reports the bytes hold
                 // still; the row already tells the truth about both legs.
                 m_model->updateItem(item);
+            }
+            // A receiver that restarted between two polls comes back
+            // online idle, with no job, no report and no bytes ever
+            // coming: nothing else in this loop will move or explain the
+            // row again. Once the download has been silent past the
+            // stall window on an idle console that is not running our
+            // job, fail it with a reason instead of leaving
+            // "console is downloading…" on screen forever.
+            if (m_consoleIdle && !jobOurs && item.progressMs > 0
+                && nowMs - item.progressMs >= m_stallFailMs) {
+                finishItem(item, TransferState::Failed,
+                           tr("the console stopped downloading without "
+                              "reporting an error (the receiver may have "
+                              "restarted); send it again"));
             }
             continue;
         }
@@ -372,8 +392,16 @@ void TransferQueue::onReceiverStatus(const ReceiverStatus &status)
                            status.lastErr.isEmpty()
                                ? tr("install failed on the console")
                                : tr("console: %1").arg(status.lastErr));
-            } else {
+            } else if (status.hasLast && status.lastUrl == item.pushedUrl) {
                 finishItem(item, TransferState::Done, tr("installed"));
+            } else {
+                // Idle, but no report for this URL: the receiver restarted
+                // mid-install (its report lives in memory) or another
+                // job's report already replaced ours before we polled.
+                // Claiming a confirmed install here is how a dead install
+                // masquerades as a win, so say what actually happened.
+                finishItem(item, TransferState::Done,
+                           tr("installed (outcome unreported)"));
             }
         }
     }

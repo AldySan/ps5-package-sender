@@ -43,6 +43,11 @@ struct QueueItem {
     bool verifying = false;
     bool hasIcon = false;
     int pullGrace = 0;
+    // Wall-clock ms of the last observed progress (a served byte or an
+    // install-phase report). A row whose sent count stops moving on an
+    // idle console is a download that died without a report — see the
+    // stall watchdog in TransferQueue::onReceiverStatus.
+    qint64 progressMs = 0;
     // A staged install delivers the package in two console-side copies
     // (the receiver stages it, then the console pulls it back from the
     // receiver's loopback server), so the row counts progress against
