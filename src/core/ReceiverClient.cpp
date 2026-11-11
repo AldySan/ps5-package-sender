@@ -119,6 +119,15 @@ void ReceiverClient::status(const StatusCallback &cb) const
         out.pullGot = qint64(o.value(QStringLiteral("pullGot")).toDouble());
         out.pullWant = qint64(o.value(QStringLiteral("pullWant")).toDouble());
         out.pullPaused = o.value(QStringLiteral("pullPaused")).toBool();
+        out.instPhase = o.value(QStringLiteral("instPhase")).toInt();
+        out.instName = o.value(QStringLiteral("instName")).toString();
+        out.instUrl = o.value(QStringLiteral("instUrl")).toString();
+        // An older receiver answers without the install-progress fields:
+        // keep the "unknown" defaults instead of reading a missing size as 0.
+        const QJsonValue instGot = o.value(QStringLiteral("instGot"));
+        const QJsonValue instWant = o.value(QStringLiteral("instWant"));
+        out.instGot = instGot.isDouble() ? qint64(instGot.toDouble()) : 0;
+        out.instWant = instWant.isDouble() ? qint64(instWant.toDouble()) : -1;
         const QString lastUrl = o.value(QStringLiteral("lastUrl")).toString();
         if (!lastUrl.isEmpty()) {
             out.hasLast = true;

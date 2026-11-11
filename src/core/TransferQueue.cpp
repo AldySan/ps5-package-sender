@@ -129,6 +129,7 @@ void TransferQueue::startInstall(QueueItem &item)
     item.state = TransferState::Pushing;
     item.message = tr("pushing to console…");
     item.sent = 0;
+    item.staged = false;
     item.serverId = QUuid::createUuid().toString(QUuid::WithoutBraces);
     m_server->registerFile(item.serverId, item.localPath);
     m_server->resetServed(item.serverId);
@@ -300,6 +301,10 @@ void TransferQueue::onReceiverStatus(const ReceiverStatus &status)
             && m_consoleIdle && status.hasLast
             && status.lastUrl == item.pushedUrl) {
             if (status.lastOk) {
+                // The console took the whole package, so a staged delivery
+                // (two copies) is complete: the finished bar reads full.
+                if (item.staged)
+                    item.sent = 2 * item.size;
                 finishItem(item, TransferState::Done, tr("installed"));
             } else {
                 finishItem(item, TransferState::Failed,
@@ -312,15 +317,43 @@ void TransferQueue::onReceiverStatus(const ReceiverStatus &status)
 
         if (!item.isCopy && item.state == TransferState::Downloading
             && item.size > 0) {
-            const qint64 served = m_server->servedFor(item.serverId);
-            item.sent = served;
-            if (served + DownloadTolerance >= item.size) {
-                item.state = TransferState::Installing;
-                item.message = tr("installing on console…");
-                item.sent = item.size;
+            // The receiver reports which leg of OUR install is moving: a
+            // staged install delivers the package twice on the console
+            // (it stages the file, then the console's own downloader
+            // pulls it back from the receiver's loopback server). Our
+            // served counter can only see the staging leg — the whole
+            // console-side copy used to be invisible and the row sat at a
+            // dead full bar for as long as the download took. Count both
+            // legs against twice the size so one bar keeps growing from
+            // the first byte served to the last byte the console copies.
+            const bool jobOurs = status.instPhase > 0
+                && status.instUrl == item.pushedUrl;
+            if (jobOurs && status.instPhase == 2) {
+                item.staged = true;
+                item.sent = qBound<qint64>(0, status.instGot, item.size);
+                item.message = tr("console is preparing the download…");
                 m_model->updateItem(item);
-                emit queueChanged();
+            } else if (jobOurs && status.instPhase == 3) {
+                item.staged = true;
+                item.sent = item.size
+                    + qBound<qint64>(0, status.instGot, item.size);
+                item.message = tr("console is downloading…");
+                m_model->updateItem(item);
+            } else if (!item.staged) {
+                const qint64 served = m_server->servedFor(item.serverId);
+                item.sent = served;
+                if (served + DownloadTolerance >= item.size) {
+                    item.state = TransferState::Installing;
+                    item.message = tr("installing on console…");
+                    item.sent = item.size;
+                    m_model->updateItem(item);
+                    emit queueChanged();
+                } else {
+                    m_model->updateItem(item);
+                }
             } else {
+                // Between the receiver's phase reports the bytes hold
+                // still; the row already tells the truth about both legs.
                 m_model->updateItem(item);
             }
             continue;
@@ -408,7 +441,8 @@ void TransferQueue::updateProgress(const QString &serverId)
 {
     for (QueueItem &item : m_items) {
         if (item.serverId != serverId
-            || item.state != TransferState::Downloading)
+            || item.state != TransferState::Downloading
+            || item.staged)
             continue;
         item.sent = m_server->servedFor(serverId);
         m_model->updateItem(item);

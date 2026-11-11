@@ -43,6 +43,11 @@ struct QueueItem {
     bool verifying = false;
     bool hasIcon = false;
     int pullGrace = 0;
+    // A staged install delivers the package in two console-side copies
+    // (the receiver stages it, then the console pulls it back from the
+    // receiver's loopback server), so the row counts progress against
+    // twice the size and one bar can grow through the whole delivery.
+    bool staged = false;
 };
 
 class QueueModel : public QAbstractListModel {
@@ -66,6 +71,7 @@ public:
         CanCancelRole,
         CanRetryRole,
         IsCopyRole,
+        IndeterminateRole,
     };
 
     explicit QueueModel(QObject *parent = nullptr);
