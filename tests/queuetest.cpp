@@ -239,7 +239,8 @@ private:
                     QTimer::singleShot(600, this, finish);
                 }, partialFetch);
             } else {
-                download(url, finish, partialFetch);
+                download(url, [finish](const QByteArray &) { finish(); },
+                          partialFetch);
             }
         };
         if (delayNextInstall) {
