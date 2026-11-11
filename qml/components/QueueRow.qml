@@ -14,6 +14,11 @@ Rectangle {
         : model.state === 7 ? Theme.textMuted
         : Theme.accentText
 
+    // The console-side install tail has no progress numbers; a moving bar
+    // and a spinner read as "still working" where a stuck "100%" read as
+    // "stuck".
+    readonly property bool indeterminate: model.indeterminate
+
     color: Theme.surface
     radius: Theme.radius
     implicitHeight: content.implicitHeight + 20
@@ -97,9 +102,18 @@ Rectangle {
 
                 Label {
                     text: Math.floor(model.percent) + "%"
+                    visible: !row.indeterminate
                     color: row.stateColor
                     font.pixelSize: 15
                     font.bold: true
+                    Layout.alignment: Qt.AlignRight
+                }
+
+                BusyIndicator {
+                    visible: row.indeterminate
+                    running: row.indeterminate
+                    implicitWidth: 20
+                    implicitHeight: 20
                     Layout.alignment: Qt.AlignRight
                 }
 
@@ -162,11 +176,30 @@ Rectangle {
                 color: Theme.surfaceAlt
             }
             contentItem: Item {
+                id: barTrack
+                clip: true
+
                 Rectangle {
                     width: Math.min(parent.width, parent.width * model.percent / 100)
                     height: parent.height
                     radius: 3
                     color: row.stateColor
+                    visible: !row.indeterminate
+                }
+
+                Rectangle {
+                    visible: row.indeterminate
+                    width: parent.width * 0.25
+                    height: parent.height
+                    radius: 3
+                    color: row.stateColor
+                    NumberAnimation on x {
+                        running: row.indeterminate
+                        from: -barTrack.width * 0.25
+                        to: barTrack.width
+                        duration: 1200
+                        loops: Animation.Infinite
+                    }
                 }
             }
         }
