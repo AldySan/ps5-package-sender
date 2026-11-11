@@ -16,6 +16,10 @@ class TransferQueue : public QObject {
 
 public:
     static constexpr qint64 DownloadTolerance = 1024 * 1024;
+    // How long a download row may sit without a single byte of progress
+    // on an idle console that is not running our install job before the
+    // queue gives up on it (see onReceiverStatus).
+    static constexpr qint64 DefaultStallFailMs = 5 * 60 * 1000;
 
     explicit TransferQueue(ReceiverClient *receiver, RangeFileServer *server,
                             QObject *parent = nullptr);
@@ -24,6 +28,10 @@ public:
 
     void setDestination(const QString &destination);
     QString destination() const { return m_destination; }
+
+    // Test hook: shorten the download-stall window instead of waiting
+    // five real minutes.
+    void setStallFailMs(qint64 ms) { m_stallFailMs = ms; }
 
     void setPcIp(const QString &pcIp) { m_pcIp = pcIp; }
     QString pcIp() const { return m_pcIp; }
@@ -67,6 +75,7 @@ private:
     QString m_activePushId;
     QString m_activeCopyId;
     bool m_consoleIdle = true;
+    qint64 m_stallFailMs = DefaultStallFailMs;
 };
 
 }
