@@ -133,6 +133,13 @@ void ReceiverClient::status(const StatusCallback &cb) const
             out.hasLast = true;
             out.lastUrl = lastUrl;
             out.lastOk = o.value(QStringLiteral("lastOk")).toBool();
+            // A direct install the console merely accepted is recorded
+            // ok=true but final=false: the downloader owns the job and
+            // never reports back, so only a final record is a verdict.
+            // A receiver that predates the flag never sends lastFinal,
+            // and toBool() on the missing value reads false — the safe
+            // default (never claim the install finished from it).
+            out.lastFinal = o.value(QStringLiteral("lastFinal")).toBool();
             out.lastErr = o.value(QStringLiteral("lastErr")).toString();
         }
         cb(out);

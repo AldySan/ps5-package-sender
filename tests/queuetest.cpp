@@ -86,10 +86,21 @@ public:
         st.instWant = m_instWant;
         st.hasLast = m_hasLast;
         st.lastOk = m_lastOk;
+        st.lastFinal = m_lastFinal;
         st.lastUrl = m_lastUrl;
         st.lastErr = m_lastErr;
         return st;
     }
+
+    /* the accepted-only record a newer receiver writes for a direct
+     * install: ok, never final, console idle — exactly the report that
+     * used to be misread as "installed" */
+    bool acceptedOnlyReported() const
+    {
+        return m_hasLast && m_lastOk && !m_lastFinal && !m_busy;
+    }
+
+    QString lastPushUrl() const { return m_lastPushUrl; }
 
     // The package size the staged timeline reports, set by the test.
     qint64 stagedPkgSize = 0;
@@ -202,16 +213,25 @@ private:
         // looks from the PC.
         const bool silentOk = name.contains(QLatin1String("SILENTOK"));
         const bool stallMe = name.contains(QLatin1String("STALLME"));
+        // "ACCEPTSTALL": the console accepts the push and the receiver
+        // writes the accepted-only record right away, but the console's
+        // downloader only starts fetching 1.5 s later — the window in
+        // which the old code declared victory and unregistered the file
+        // while the download had not even begun.
+        const bool acceptStall = name.contains(QLatin1String("ACCEPTSTALL"));
         const bool partialFetch = abortDownload || stallMe
             || name.contains(QLatin1String("PARTIALOK"));
+        // "PARTIALOK": the downloader takes a slice, then resumes and
+        // takes the whole file — the PC sees slice + full served.
+        const bool resumeCompletes = name.contains(QLatin1String("PARTIALOK"));
         // "STAGED*": the console refuses the LAN route and the receiver
         // runs the two-copy choreography (stage to /data, then the console
         // pulls it back from the receiver's loopback server) — reported
         // through the instPhase/instGot progress fields.
         const bool staged = name.contains(QLatin1String("STAGED"));
         const auto respond = [this, sock, fail, url, failInstall, abortDownload,
-                              partialFetch, staged, name, silentOk,
-                              stallMe]() {
+                              partialFetch, resumeCompletes, staged, name, silentOk,
+                              stallMe, acceptStall]() {
             installReplies++;
             if (fail) {
                 m_installFailures++;
@@ -225,6 +245,20 @@ private:
                                   !name.contains(QLatin1String("STAGEDFAIL")));
                 return;
             }
+            if (acceptStall) {
+                // accepted-only record right away (the receiver's worker
+                // is done), the console's download starts only later
+                m_hasLast = true;
+                m_lastUrl = url;
+                m_lastOk = true;
+                m_lastFinal = false;
+                m_lastErr.clear();
+                m_lastPushUrl = url;
+                QTimer::singleShot(1500, this, [this, url]() {
+                    download(url, [](const QByteArray &) {}, false);
+                });
+                return;
+            }
             m_active++;
             m_busy = true;
             const auto finish = [this, url, failInstall, abortDownload,
@@ -235,12 +269,18 @@ private:
                     return; // the outcome is never reported
                 m_hasLast = true;
                 m_lastUrl = url;
+                m_lastPushUrl = url;
                 if (failInstall || abortDownload) {
                     m_lastOk = false;
+                    // a failure is definitive
+                    m_lastFinal = true;
                     m_lastErr = QStringLiteral(
                         "not enough free space on the console");
                 } else {
                     m_lastOk = true;
+                    // accepted: the console's downloader owns the job
+                    // and never reports back — never a verdict
+                    m_lastFinal = false;
                     m_lastErr.clear();
                 }
             };
@@ -251,6 +291,13 @@ private:
                 download(url, [this, finish](const QByteArray &) {
                     QTimer::singleShot(600, this, finish);
                 }, partialFetch);
+            } else if (resumeCompletes) {
+                // A slice first, then the whole file: the PC's served
+                // counter ends up past the size (a resumed download).
+                download(url, [this, url, finish](const QByteArray &) {
+                    download(url, [finish](const QByteArray &) { finish(); },
+                             false);
+                }, true);
             } else {
                 download(url, [finish](const QByteArray &) { finish(); },
                           partialFetch);
@@ -367,7 +414,11 @@ private:
             m_busy = m_active > 0;
             m_hasLast = true;
             m_lastUrl = url;
+            m_lastPushUrl = url;
             m_lastOk = ok;
+            // a staged outcome is definitive: the receiver served the
+            // whole copy before recording it
+            m_lastFinal = true;
             m_lastErr = ok
                 ? QString()
                 : QStringLiteral("not enough free space on the console");
@@ -395,8 +446,10 @@ private:
     int m_installFailures = 0;
     bool m_hasLast = false;
     bool m_lastOk = false;
+    bool m_lastFinal = false;
     QString m_lastUrl;
     QString m_lastErr;
+    QString m_lastPushUrl;
 };
 
 int main(int argc, char *argv[])
@@ -463,8 +516,13 @@ int main(int argc, char *argv[])
             return queue.model()->count() == 1
                 && queue.model()->itemAt(0).state == ps5::TransferState::Done;
         }, 15000));
+        // A direct install is only ever "accepted" by the console: its
+        // downloader owns the job and never reports back, so the row
+        // closes honestly with the outcome unreported rather than a
+        // verdict nobody has.
         if (queue.model()->count() == 1)
-            CHECK(queue.model()->itemAt(0).message == "installed");
+            CHECK(queue.model()->itemAt(0).message
+                  == "installed (outcome unreported)");
 
         // --- copy flow ---
         {
@@ -722,8 +780,8 @@ int main(int argc, char *argv[])
         CHECK(queue.model()->itemAt(12).message
               == "console: not enough free space on the console");
 
-        // A following successful install of a different row still reports
-        // "installed" — the failed last-result must not leak onto it.
+        // A following successful install of a different row still closes
+        // Done — the failed last-result must not leak onto it.
         ps5::LibraryRow okRow = row;
         okRow.title = "Good After Bad";
         queue.enqueue({okRow}, false);
@@ -731,7 +789,8 @@ int main(int argc, char *argv[])
             return queue.model()->count() == 14
                 && queue.model()->itemAt(13).state == ps5::TransferState::Done;
         }, 15000));
-        CHECK(queue.model()->itemAt(13).message == "installed");
+        CHECK(queue.model()->itemAt(13).message
+              == "installed (outcome unreported)");
 
         // --- a download the console abandons fails the row, not hangs ---
         // The console accepts the push but its downloader gives up after
@@ -751,10 +810,12 @@ int main(int argc, char *argv[])
               == "console: not enough free space on the console");
 
         // --- an install finished from a partial fetch is done ---
-        // The console completed the install having fetched fewer bytes
-        // than the PC saw served (a resumed download); the receiver's
-        // report says installed, so the row must settle as Done instead
-        // of hanging while it counts bytes that never come.
+        // The downloader takes a slice, then resumes and takes the whole
+        // file: the PC sees slice + full served (past the size). Only a
+        // final verdict may close a row as "installed", and a resumed
+        // direct download carries none — so the row settles Done with
+        // the outcome unreported instead of hanging while it counts
+        // bytes that never come.
         ps5::LibraryRow partialOkRow = row;
         partialOkRow.title = "PARTIALOK Once";
         queue.enqueue({partialOkRow}, false);
@@ -762,7 +823,8 @@ int main(int argc, char *argv[])
             return queue.model()->count() == 16
                 && queue.model()->itemAt(15).state == ps5::TransferState::Done;
         }, 15000));
-        CHECK(queue.model()->itemAt(15).message == "installed");
+        CHECK(queue.model()->itemAt(15).message
+              == "installed (outcome unreported)");
 
         // --- a tight console warns before the transfer, not after ---
         // The receiver reports less than twice the package free: the push
@@ -885,6 +947,47 @@ int main(int argc, char *argv[])
         }, 15000));
         CHECK(queue.model()->itemAt(20).message
               == "console: not enough free space on the console");
+
+        // --- an accepted install keeps the row open and the file served ---
+        // The console accepts the push and the receiver immediately
+        // writes its accepted-only record (ok, never final, console
+        // idle) — but the console's own download starts only later. The
+        // row must NOT claim "installed" on that record, and the
+        // package must still be fetchable from the file server when the
+        // download finally runs: unregistering it here is exactly what
+        // used to kill the console's download with a 404 mid-package
+        // ("Can't install.").
+        ps5::LibraryRow acceptRow = row;
+        acceptRow.title = "ACCEPTSTALL Once";
+        queue.enqueue({acceptRow}, false);
+        CHECK(waitFor([&] {
+            return queue.model()->count() == 22 && console.acceptedOnlyReported();
+        }, 15000));
+        // accepted, console idle per the receiver — the row must still
+        // be open, not finished by the accepted-only record
+        CHECK(queue.model()->itemAt(21).state == ps5::TransferState::Downloading);
+        // the package is still served to the console's downloader
+        {
+            QNetworkAccessManager nam;
+            QNetworkReply *reply = nam.get(QNetworkRequest(QUrl(console.lastPushUrl())));
+            QEventLoop loop;
+            QObject::connect(reply, &QNetworkReply::finished, &loop, &QEventLoop::quit);
+            QTimer::singleShot(5000, &loop, &QEventLoop::quit);
+            loop.exec();
+            const int code = reply->attribute(
+                QNetworkRequest::HttpStatusCodeAttribute).toInt();
+            const qint64 length = reply->header(
+                QNetworkRequest::ContentLengthHeader).toLongLong();
+            const bool stillServed = reply->error() == QNetworkReply::NoError
+                && code == 200 && length == payload.size();
+            reply->deleteLater();
+            CHECK(stillServed);
+        }
+        CHECK(waitFor([&] {
+            return queue.model()->itemAt(21).state == ps5::TransferState::Done;
+        }, 15000));
+        CHECK(queue.model()->itemAt(21).message
+              == "installed (outcome unreported)");
     }
 
     if (failures == 0) {

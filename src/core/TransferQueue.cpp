@@ -292,27 +292,40 @@ void TransferQueue::onReceiverStatus(const ReceiverStatus &status)
 
         // The console stopped while this row was still counting download
         // bytes: the receiver is idle and its last-install report is about
-        // the exact URL this row pushed. Either the console's downloader
-        // gave up part-way (a space or network error, in its own words) or
-        // it finished the install from fewer bytes than we saw served (a
-        // resumed download). Both used to leave the row in "console is
-        // downloading…" forever with the answer one poll away.
+        // the exact URL this row pushed. Only a FINAL report is an
+        // outcome: a direct install the console merely ACCEPTED is
+        // reported with lastOk=true but lastFinal=false — its
+        // downloader owns the job from the moment the call returns and
+        // never reports back, so that record is a progress note. Reading
+        // it as "installed" used to finish the row and drop the package
+        // from the file server while the console was still downloading
+        // it — the next range request 404'd and the download manager
+        // gave up ("Can't install."). An accepted install falls through
+        // to the progress tracking below instead.
+        //
+        // A final failure is the console's own words for what went
+        // wrong; a final success, or a finished download that
+        // reported fewer bytes than we saw served (a resumed
+        // download), both close the row here.
         if (!item.isCopy && item.state == TransferState::Downloading
             && m_consoleIdle && status.hasLast
             && status.lastUrl == item.pushedUrl) {
-            if (status.lastOk) {
+            if (!status.lastOk) {
+                finishItem(item, TransferState::Failed,
+                           status.lastErr.isEmpty()
+                               ? tr("install failed on the console")
+                               : tr("console: %1").arg(status.lastErr));
+                continue;
+            }
+            if (status.lastFinal) {
                 // The console took the whole package, so a staged delivery
                 // (two copies) is complete: the finished bar reads full.
                 if (item.staged)
                     item.sent = 2 * item.size;
                 finishItem(item, TransferState::Done, tr("installed"));
-            } else {
-                finishItem(item, TransferState::Failed,
-                           status.lastErr.isEmpty()
-                               ? tr("install failed on the console")
-                               : tr("console: %1").arg(status.lastErr));
+                continue;
             }
-            continue;
+            // accepted, not finished: keep watching the served bytes
         }
 
         if (!item.isCopy && item.state == TransferState::Downloading
@@ -384,22 +397,24 @@ void TransferQueue::onReceiverStatus(const ReceiverStatus &status)
             // ends idle, and both outcomes used to be reported as
             // "installed". The receiver publishes the result of the last
             // install it ran together with the exact URL it queued; when
-            // that one is ours, fail the row with the console's own words
-            // instead of claiming success.
+            // that one is ours and FINAL, it is the verdict. Without a
+            // final verdict for this URL — the receiver restarted
+            // mid-install (its report lives in memory), a newer report
+            // for another job already replaced ours, or the console merely
+            // accepted a direct install and never reported back — the row
+            // is closed with the outcome unknown rather than claimed as
+            // a win, which is how a dead install used to masquerade as
+            // one.
             if (status.hasLast && status.lastUrl == item.pushedUrl
                 && !status.lastOk) {
                 finishItem(item, TransferState::Failed,
                            status.lastErr.isEmpty()
                                ? tr("install failed on the console")
                                : tr("console: %1").arg(status.lastErr));
-            } else if (status.hasLast && status.lastUrl == item.pushedUrl) {
+            } else if (status.hasLast && status.lastUrl == item.pushedUrl
+                       && status.lastOk && status.lastFinal) {
                 finishItem(item, TransferState::Done, tr("installed"));
             } else {
-                // Idle, but no report for this URL: the receiver restarted
-                // mid-install (its report lives in memory) or another
-                // job's report already replaced ours before we polled.
-                // Claiming a confirmed install here is how a dead install
-                // masquerades as a win, so say what actually happened.
                 finishItem(item, TransferState::Done,
                            tr("installed (outcome unreported)"));
             }
@@ -453,12 +468,23 @@ void TransferQueue::onReceiverOffline()
             continue;
         }
         if (!item.isCopy && item.state == TransferState::Downloading) {
-            item.message = tr("console went offline (will resume)");
+            // The receiver went away, but the console's own download of
+            // this package talks to OUR file server, not to the receiver
+            // — it may well be alive. With bytes already served the row
+            // keeps tracking them; the stall window fails it if the
+            // download really died. The registration must also stay:
+            // dropping it is what turned a receiver restart into a 404
+            // for the console's still-running download.
+            if (m_server->servedFor(item.serverId) > 0) {
+                item.message = tr("receiver offline; the console's download continues");
+                m_model->updateItem(item);
+                continue;
+            }
+            item.message = tr("waiting for console…");
             item.state = TransferState::Queued;
             // Another push may already be in flight; leave its marker alone.
             if (m_activePushId == item.id)
                 m_activePushId.clear();
-            m_server->forget(item.serverId);
             m_model->updateItem(item);
             emit queueChanged();
         }
@@ -482,9 +508,16 @@ void TransferQueue::finishItem(QueueItem &item, TransferState state,
 {
     item.state = state;
     item.message = message;
-    // Terminal items never serve bytes again — drop the server registration
-    // (and its served counter) so they do not pile up for the whole session.
-    if (m_server && !item.serverId.isEmpty())
+    // Terminal COPY items never serve bytes again — drop the server
+    // registration (and its served counter). An INSTALL item is
+    // deliberately KEPT registered: the console's downloader fetches
+    // the package straight from this server and keeps doing so after
+    // the queue row closes (a direct install only reports "accepted",
+    // and a retry, resume or late range request can arrive long after
+    // the row said done). Unregistering here is exactly how the
+    // console's own download was killed with a 404 mid-package; the
+    // entries are one map slot each and die with the app.
+    if (m_server && !item.serverId.isEmpty() && item.isCopy)
         m_server->forget(item.serverId);
     m_model->updateItem(item);
     emit queueChanged();

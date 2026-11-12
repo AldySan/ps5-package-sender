@@ -29,8 +29,17 @@ struct ReceiverStatus {
     // run one (empty lastUrl = nothing recorded yet). The queue matches
     // lastUrl against the URL it pushed and fails the row with the
     // console's own words when lastOk is false.
+    //
+    // lastFinal separates a verdict from a progress note: a direct
+    // install the console merely ACCEPTED is recorded with lastOk=true
+    // but lastFinal=false — its downloader owns the job from the moment
+    // the call returns and never reports back, so that record can never
+    // mean "installed". Only a final record may finish a row as done;
+    // receivers that predate the flag never send it, and a missing
+    // field reads as false (not final) here — the safe default.
     bool hasLast = false;
     bool lastOk = false;
+    bool lastFinal = false;
     QString lastUrl;
     QString lastErr;
 };
