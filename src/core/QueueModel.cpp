@@ -40,7 +40,13 @@ QVariant QueueModel::data(const QModelIndex &index, int role) const
     case PercentRole: {
         if (item.size <= 0)
             return 100.0;
-        return qMin(100.0, double(item.sent) * 100.0 / double(item.size));
+        // A staged delivery is two full copies of the same package, so its
+        // progress is measured against twice the size: the bar grows through
+        // the staging leg and the console's own copy without ever sitting at
+        // a dead 100% while bytes are still moving.
+        const double total = item.staged ? 2.0 * double(item.size)
+                                         : double(item.size);
+        return qMin(100.0, double(item.sent) * 100.0 / total);
     }
     case SizeTextRole:
         return formatSize(item.size);
@@ -61,6 +67,12 @@ QVariant QueueModel::data(const QModelIndex &index, int role) const
             || item.state == TransferState::Cancelled;
     case IsCopyRole:
         return item.isCopy;
+    case IndeterminateRole:
+        // The console-side install tail has no progress source: the
+        // receiver is inside the installer call and its phase reports say
+        // nothing about how far the console's own install has come. A
+        // spinner instead of a fake "100%" says the row is still working.
+        return !item.isCopy && item.state == TransferState::Installing;
     }
     return {};
 }
@@ -81,6 +93,7 @@ QHash<int, QByteArray> QueueModel::roleNames() const
         {CanCancelRole, "canCancel"},
         {CanRetryRole, "canRetry"},
         {IsCopyRole, "isCopy"},
+        {IndeterminateRole, "indeterminate"},
     };
 }
 

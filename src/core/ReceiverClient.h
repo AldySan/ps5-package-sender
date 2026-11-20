@@ -15,12 +15,31 @@ struct ReceiverStatus {
     qint64 pullGot = 0;
     qint64 pullWant = -1;
     bool pullPaused = false;
+    // Live progress of the install job the receiver is running right now
+    // (absent on older builds): instPhase 0 = none, 1 = the console fetches
+    // the package itself, 2 = the receiver is staging it to /data, 3 = the
+    // console is copying the staged package from the receiver. instUrl
+    // identifies the job so the queue can match the URL it pushed.
+    int instPhase = 0;
+    QString instName;
+    QString instUrl;
+    qint64 instGot = 0;
+    qint64 instWant = -1;
     // Outcome of the last install the receiver ran, present once it has
     // run one (empty lastUrl = nothing recorded yet). The queue matches
     // lastUrl against the URL it pushed and fails the row with the
     // console's own words when lastOk is false.
+    //
+    // lastFinal separates a verdict from a progress note: a direct
+    // install the console merely ACCEPTED is recorded with lastOk=true
+    // but lastFinal=false — its downloader owns the job from the moment
+    // the call returns and never reports back, so that record can never
+    // mean "installed". Only a final record may finish a row as done;
+    // receivers that predate the flag never send it, and a missing
+    // field reads as false (not final) here — the safe default.
     bool hasLast = false;
     bool lastOk = false;
+    bool lastFinal = false;
     QString lastUrl;
     QString lastErr;
 };
