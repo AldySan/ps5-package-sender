@@ -26,6 +26,9 @@ class MockReceiver : public QTcpServer {
 public:
     QString lastBody;
     QString lastPath;
+    // /api/status only carries the install-progress fields when set — an
+    // older receiver answers without them.
+    bool includeInstallProgress = false;
 
     bool start()
     {
@@ -60,6 +63,14 @@ private:
                         "\"lastOk\":false,"
                         "\"lastUrl\":\"http://192.0.2.10:9899/pkg/a\","
                         "\"lastErr\":\"not enough free space\"}";
+                if (includeInstallProgress) {
+                    reply.replace(
+                        "\"pullPaused\":false,",
+                        "\"pullPaused\":false,"
+                        "\"instPhase\":3,\"instName\":\"Staged Game.pkg\","
+                        "\"instUrl\":\"http://192.0.2.10:9899/pkg/staged\","
+                        "\"instGot\":123,\"instWant\":456,");
+                }
             } else if (lastPath == "/api/space") {
                 reply = "{\"free\":1000,\"total\":2000}";
             } else if (lastPath == "/api/version") {
@@ -146,6 +157,30 @@ int main(int argc, char *argv[])
         CHECK(!st.lastOk);
         CHECK(st.lastUrl == QStringLiteral("http://192.0.2.10:9899/pkg/a"));
         CHECK(st.lastErr == QStringLiteral("not enough free space"));
+        // an older receiver answers without the install-progress fields:
+        // the defaults must hold (a missing size is unknown, not zero)
+        CHECK(st.instPhase == 0);
+        CHECK(st.instName.isEmpty());
+        CHECK(st.instUrl.isEmpty());
+        CHECK(st.instGot == 0);
+        CHECK(st.instWant == -1);
+    }
+
+    {
+        mock.includeInstallProgress = true;
+        ps5::ReceiverStatus st;
+        waitCallback([&](auto done) {
+            client.status([&](const ps5::ReceiverStatus &s) {
+                st = s;
+                done();
+            });
+        });
+        CHECK(st.instPhase == 3);
+        CHECK(st.instName == QStringLiteral("Staged Game.pkg"));
+        CHECK(st.instUrl == QStringLiteral("http://192.0.2.10:9899/pkg/staged"));
+        CHECK(st.instGot == 123);
+        CHECK(st.instWant == 456);
+        mock.includeInstallProgress = false;
     }
 
     {
